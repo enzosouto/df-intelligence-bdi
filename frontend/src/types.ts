@@ -52,7 +52,6 @@ export interface RegionIndicators {
   bikeway_km: number | null
   bikeway_km_per_10k: number | null
   metro_stations: number | null
-  bus_terminals: number | null
 
   temp_mean_c: number | null
   temp_max_avg_c: number | null
@@ -224,7 +223,6 @@ export interface MobilityRegion {
   bikeway_last_year: number | null
   metro_stations: number
   metro_stations_building: number
-  bus_terminals: number
   source_id: string
 }
 

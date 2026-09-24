@@ -97,7 +97,7 @@ onMounted(async () => {
                sm:items-center sm:justify-between sm:px-8"
       >
         <p>
-          Dados públicos de IBGE, IBRAM/ONDA-DF, SSP-DF, CNES/Ministério da Saúde e Open-Meteo.
+          Dados públicos de IBGE, IBRAM/ONDA-DF, SSP-DF, CNES/Ministério da Saúde, SEEDF/Inep, IDE-DF e Open-Meteo.
         </p>
         <p>
           Projeto independente, sem vínculo com o Governo do Distrito Federal.

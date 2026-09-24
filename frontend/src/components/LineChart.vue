@@ -57,34 +57,53 @@ function yAt(value: number): number {
   return props.height - PAD.bottom - ratio * (props.height - PAD.top - PAD.bottom)
 }
 
-/** Segmentos contínuos: um buraco (null) quebra a linha em vez de interpolá-la. */
-function segmentsOf(serie: Series): string[] {
-  const segments: string[] = []
-  let current: string[] = []
+/** Trechos contínuos (índices com valor). Um buraco (null) encerra o trecho. */
+function runsOf(serie: Series): number[][] {
+  const runs: number[][] = []
+  let current: number[] = []
   serie.points.forEach((point, index) => {
     if (point.y === null) {
-      if (current.length > 1) segments.push(current.join(''))
+      if (current.length) runs.push(current)
       current = []
-      return
+    } else {
+      current.push(index)
     }
-    current.push(`${current.length === 0 ? 'M' : 'L'}${xAt(index).toFixed(1)},${yAt(point.y).toFixed(1)}`)
   })
-  if (current.length > 1) segments.push(current.join(''))
-  return segments
+  if (current.length) runs.push(current)
+  return runs
 }
 
-function areaOf(serie: Series): string {
-  const points = serie.points
-    .map((point, index) => ({ point, index }))
-    .filter(({ point }) => point.y !== null)
-  if (points.length < 2) return ''
-  const line = points
-    .map(({ point, index }, order) => `${order === 0 ? 'M' : 'L'}${xAt(index)},${yAt(point.y as number)}`)
+function pathOf(serie: Series, run: number[]): string {
+  return run
+    .map((index, order) => `${order === 0 ? 'M' : 'L'}${xAt(index).toFixed(1)},${yAt(serie.points[index].y as number).toFixed(1)}`)
     .join('')
-  const first = xAt(points[0].index)
-  const last = xAt(points[points.length - 1].index)
-  const baseline = yAt(bounds.value.min)
-  return `${line}L${last},${baseline}L${first},${baseline}Z`
+}
+
+/** Linhas: um buraco quebra a linha em vez de interpolá-la. */
+function segmentsOf(serie: Series): string[] {
+  return runsOf(serie).filter((run) => run.length > 1).map((run) => pathOf(serie, run))
+}
+
+/**
+ * Pontos sem vizinho com valor. Sem isto, um ano completo cercado de lacunas
+ * (ex.: 2014 e 2021 nas matrículas) não desenharia nada — o dado existiria e
+ * o gráfico o esconderia.
+ */
+function isolatedOf(serie: Series): number[] {
+  return runsOf(serie).filter((run) => run.length === 1).map((run) => run[0])
+}
+
+/** Área por trecho: preencher por cima de uma lacuna seria interpolar. */
+function areaOf(serie: Series): string {
+  const baseline = yAt(bounds.value.min).toFixed(1)
+  return runsOf(serie)
+    .filter((run) => run.length > 1)
+    .map((run) => {
+      const first = xAt(run[0]).toFixed(1)
+      const last = xAt(run[run.length - 1]).toFixed(1)
+      return `${pathOf(serie, run)}L${last},${baseline}L${first},${baseline}Z`
+    })
+    .join('')
 }
 
 const ticks = computed(() => {
@@ -99,9 +118,12 @@ const xTicks = computed(() => {
   const count = labels.value.length
   if (count === 0) return []
   const stride = Math.max(1, Math.ceil(count / 7))
+  const last = count - 1
+  // O último rótulo sempre aparece; o do passo anterior sai se ficar colado
+  // nele (evita "20252026" e "jul/26set/26").
   return labels.value
     .map((label, index) => ({ label, index }))
-    .filter(({ index }) => index % stride === 0 || index === count - 1)
+    .filter(({ index }) => index === last || (index % stride === 0 && last - index >= stride * 0.6))
 })
 
 function onMove(event: MouseEvent) {
@@ -172,6 +194,14 @@ function onMove(event: MouseEvent) {
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
+        />
+        <circle
+          v-for="index in isolatedOf(serie)"
+          :key="`solo-${serie.key}-${index}`"
+          :cx="xAt(index)"
+          :cy="yAt(serie.points[index].y as number)"
+          r="3.5"
+          :fill="serie.color"
         />
         <circle
           v-for="(point, index) in serie.points"

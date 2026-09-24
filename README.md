@@ -213,7 +213,7 @@ uma vez o mapeamento RA↔subdistrito, a ingestão e a ausência de duplicata.
 | Fronteiras mudaram entre os Censos | "Ceilândia perdeu 29% da população" — publicado como fato. |
 | Códigos de RA 34/35 invertidos na SEEDF (e nome trocado em 2025) | Escolas do Arapoanga contadas em Água Quente. RA passou a vir da coordenada. |
 | Arquivos de matrículas omitem escolas ativas em 8 de 12 anos (2023: 600 de 1.264) | "Queda de 4% de 2014 para 2015" — 94% dela são escolas ausentes do arquivo. Completude medida por ano × rede; esses anos viram lacuna. |
-| Camada de estações repete 17 estações de metrô | Metrô contado duas vezes. Só a camada dedicada entra. |
+| Camada de estações repete 17 estações de metrô e omite a Rodoviária do Plano Piloto | Metrô contado duas vezes e "0 terminais" no Plano Piloto. Só a camada de metrô entra; terminais não são publicados. |
 | Ensino médio reclassificado como integrado em 2025 | "Ensino médio perdeu 11% dos alunos". Série publicada como médio + integrado. |
 
 **Limitações declaradas na API e na interface:** dados de segurança são
@@ -355,7 +355,7 @@ df-intelligence/
 │   ├── security.py     # 331 planilhas da SSP-DF
 │   ├── health.py       # CNES + join espacial
 │   ├── education.py    # Educacenso (SEEDF): 24 CSVs, RA pela coordenada
-│   ├── mobility.py     # IDE-DF: ciclovias recortadas por RA, metrô, terminais
+│   ├── mobility.py     # IDE-DF: ciclovias recortadas por RA e metrô
 │   ├── weather.py      # Open-Meteo, incremental
 │   └── validate_sources.py
 ├── db/init/            # DDL dos schemas raw e meta

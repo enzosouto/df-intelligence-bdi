@@ -103,7 +103,6 @@ class RegionIndicators(BaseModel):
         default=None, description="Km por 10 mil habitantes (Censo 2022). Nulo onde o IBGE não publica população."
     )
     metro_stations: int | None = Field(default=None, description="Estações de metrô em operação na RA.")
-    bus_terminals: int | None = Field(default=None, description="Terminais de ônibus ativos na RA.")
 
     temp_mean_c: float | None
     temp_max_avg_c: float | None
@@ -309,7 +308,6 @@ class MobilityRegion(BaseModel):
     bikeway_last_year: int | None
     metro_stations: int = Field(description="Estações de metrô em operação.")
     metro_stations_building: int = Field(description="Estações de metrô registradas como em construção.")
-    bus_terminals: int
     source_id: str
 
 
@@ -325,7 +323,7 @@ class BikewayYear(BaseModel):
 
 
 class MobilityStation(BaseModel):
-    station_kind: Literal["METRO", "BUS_TERMINAL"]
+    station_kind: Literal["METRO"]
     station_name: str | None
     status: str | None
     is_operating: bool

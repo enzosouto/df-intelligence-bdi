@@ -59,6 +59,14 @@ const METRICS = [
     note: 'Crimes Violentos Letais Intencionais: homicídio, latrocínio e lesão corporal seguida de morte.',
   },
   {
+    key: 'bikeway',
+    label: 'Ciclovia / 10 mil hab.',
+    color: '#FF8A4C',
+    of: (region: RegionIndicators) => region.bikeway_km_per_10k,
+    format: (value: number | null) => (value === null ? '—' : `${dec(value, 1)} km`),
+    note: 'Km de ciclovia, ciclofaixa e calçada compartilhada dentro da RA (IDE-DF), por 10 mil habitantes do Censo 2022. Mede extensão instalada, não uso nem qualidade.',
+  },
+  {
     key: 'health',
     label: 'Saúde / 10 mil hab.',
     color: '#4CC2FF',
@@ -222,8 +230,8 @@ onMounted(load)
         Brasília através dos dados.
       </h1>
       <p class="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-        Dados públicos de população, segurança, saúde e clima consolidados por Região
-        Administrativa — com a cobertura real de cada fonte à mostra, não escondida.
+        Dados públicos de população, segurança, saúde, educação, mobilidade e clima consolidados
+        por Região Administrativa — com a cobertura real de cada fonte à mostra, não escondida.
       </p>
     </section>
 
@@ -389,7 +397,12 @@ onMounted(load)
           <p class="mb-5 mt-1 text-xs text-faint">
             Soma das RAs que publicaram cada mês · SSP-DF, a partir de 2018
           </p>
-          <LineChart :series="securityChart" :format-value="(value) => short(value)" :area="false" />
+          <LineChart
+            :series="securityChart"
+            :format-value="(value) => short(value)"
+            :format-x="monthLabel"
+            :area="false"
+          />
           <DataNotice tone="warn" class="mt-4">
             A cobertura da SSP-DF varia por RA e por ano. Quedas na linha podem refletir RAs que
             deixaram de publicar, e não redução de ocorrências — confira em Fontes &amp; Qualidade.

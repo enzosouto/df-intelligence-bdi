@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS raw.education_school_location (
     _ingested_at    timestamptz NOT NULL DEFAULT now()
 );
 
--- Mobilidade: malha cicloviária, metrô e terminais (IDE-DF) -----------------
+-- Mobilidade: malha cicloviária e metrô (IDE-DF) ----------------------------
 -- Um trecho cicloviário como a IDE-DF publica. `declared_*` são os valores da
 -- fonte; o comprimento por RA NÃO sai daqui, e sim de mobility_bikeway_piece.
 CREATE TABLE IF NOT EXISTS raw.mobility_bikeway_segment (
@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS raw.mobility_bikeway_piece (
     PRIMARY KEY (segment_id, ra_code)
 );
 
--- Estações de metrô (camada 140) e terminais de ônibus (camada 127).
+-- Estações de metrô (camada 140). BUS_TERMINAL existiu e foi retirado: ver data_quality 2.21.
 CREATE TABLE IF NOT EXISTS raw.mobility_station (
     station_kind   text   NOT NULL CHECK (station_kind IN ('METRO', 'BUS_TERMINAL')),
     feature_id     bigint NOT NULL,

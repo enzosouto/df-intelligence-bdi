@@ -43,7 +43,7 @@ Camada analítica sobre dados públicos do Distrito Federal.
 **Fontes**: IBGE (população e malha de subdistritos), IBRAM/ONDA-DF (limites das
 Regiões Administrativas), SSP-DF (balanço criminal mensal por RA), CNES/Ministério
 da Saúde (estabelecimentos de saúde), SEEDF/Educacenso (escolas e matrículas), IDE-DF
-(malha cicloviária, metrô e terminais) e Open-Meteo/ERA5 (clima).
+(malha cicloviária e metrô) e Open-Meteo/ERA5 (clima).
 
 ### Três coisas para saber antes de consumir
 
@@ -510,7 +510,7 @@ def get_education_coverage() -> list[dict]:
     "/api/mobility",
     response_model=list[MobilityRegion],
     tags=["Mobilidade"],
-    summary="Malha cicloviária, metrô e terminais por RA",
+    summary="Malha cicloviária e metrô por RA",
 )
 def get_mobility(region_id: str | None = Query(None)) -> list[dict]:
     """Infraestrutura instalada, com o km de cada trecho recortado pela divisa
@@ -553,7 +553,7 @@ def get_bikeway_yearly(
     "/api/mobility/stations",
     response_model=list[MobilityStation],
     tags=["Mobilidade"],
-    summary="Estações de metrô e terminais de ônibus",
+    summary="Estações de metrô",
 )
 def get_mobility_stations(region_id: str | None = Query(None)) -> list[dict]:
     sql = """
@@ -820,14 +820,14 @@ def _indicator_catalog() -> list[dict]:
             "caveat": "Retrato do presente. A série por ano de construção não é a malha histórica.",
         },
         {
-            "indicator_id": "mobility_transit",
+            "indicator_id": "mobility_metro",
             "domain": "mobility",
-            "name": "Estações de metrô e terminais de ônibus",
+            "name": "Estações de metrô",
             "unit": "estações",
             "granularity": "Região Administrativa",
             "source_id": "IDEDF_MOBILIDADE",
-            "description": "Estações de metrô em operação e terminais de ônibus ativos, localizados pela geometria.",
-            "caveat": "Presença na RA não é acessibilidade a pé. Estações de BRT não entram (camada sem nome).",
+            "description": "Estações em operação e em construção, localizadas na RA pela geometria.",
+            "caveat": "Presença na RA não é acesso a pé. Terminais de ônibus e BRT não entram: a camada omite a Rodoviária do Plano Piloto.",
         },
         {
             "indicator_id": "weather_temperature",

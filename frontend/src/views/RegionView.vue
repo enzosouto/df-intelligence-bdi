@@ -73,6 +73,18 @@ const educationChart = computed<Series[]>(() => {
   }))
 })
 
+// Só os tipos presentes na RA: "Ciclofaixa 0,0 km" na legenda é ruído.
+const bikewayParts = computed(() => {
+  const region = mobility.value
+  if (!region) return []
+  return [
+    { key: 'seg', label: 'Ciclovia', value: region.bikeway_km_segregated, color: '#FF8A4C' },
+    { key: 'paint', label: 'Ciclofaixa', value: region.bikeway_km_painted, color: '#FFB38A' },
+    { key: 'shared', label: 'Calçada compartilhada', value: region.bikeway_km_shared, color: '#98A2B3' },
+    { key: 'other', label: 'Outros', value: region.bikeway_km_other, color: '#5D6675' },
+  ].filter((part) => part.value > 0)
+})
+
 const educationGaps = computed(() =>
   education.value.filter((year) => !year.is_year_complete).map((year) => year.census_year),
 )
@@ -403,7 +415,7 @@ watch(() => props.regionId, load)
         <section v-if="mobility" class="card card-pad">
           <h2 class="font-display text-lg font-semibold">Mobilidade</h2>
           <p class="mt-1 text-xs text-faint">
-            Malha cicloviária, metrô e terminais · IDE-DF · trechos recortados pela divisa da RA
+            Malha cicloviária e metrô · IDE-DF · trechos recortados pela divisa da RA
           </p>
 
           <dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
@@ -411,7 +423,7 @@ watch(() => props.regionId, load)
               { label: 'Malha cicloviária', value: `${dec(mobility.bikeway_km, 1)} km`, title: 'Ciclovia, ciclofaixa, calçada compartilhada e outros' },
               { label: 'Por 10 mil hab.', value: mobility.bikeway_km_per_10k === null ? '—' : `${dec(mobility.bikeway_km_per_10k, 1)} km`, title: 'Censo 2022' },
               { label: 'Estações de metrô', value: num(mobility.metro_stations), title: 'Em operação' },
-              { label: 'Terminais de ônibus', value: num(mobility.bus_terminals), title: 'Ativos' },
+              { label: 'Metrô em obras', value: num(mobility.metro_stations_building), title: 'Estações registradas como em construção' },
             ]" :key="item.label">
               <dt class="label" :title="item.title">{{ item.label }}</dt>
               <dd class="mt-1 font-display text-xl font-semibold tnum">{{ item.value }}</dd>
@@ -422,21 +434,16 @@ watch(() => props.regionId, load)
             <p class="label mb-2">Tipo de infraestrutura</p>
             <div class="flex h-2.5 overflow-hidden rounded-full bg-elevated">
               <div
-                v-for="part in [
-                  { key: 'seg', value: mobility.bikeway_km_segregated, color: '#FF8A4C' },
-                  { key: 'paint', value: mobility.bikeway_km_painted, color: '#FFB38A' },
-                  { key: 'shared', value: mobility.bikeway_km_shared, color: '#98A2B3' },
-                  { key: 'other', value: mobility.bikeway_km_other, color: '#5D6675' },
-                ]"
+                v-for="part in bikewayParts"
                 :key="part.key"
                 :style="{ width: `${(100 * part.value) / mobility.bikeway_km}%`, background: part.color }"
               />
             </div>
             <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-              <span><span class="inline-block h-2 w-2 rounded-full" style="background: #ff8a4c" /> Ciclovia {{ dec(mobility.bikeway_km_segregated, 1) }} km</span>
-              <span><span class="inline-block h-2 w-2 rounded-full" style="background: #ffb38a" /> Ciclofaixa {{ dec(mobility.bikeway_km_painted, 1) }} km</span>
-              <span><span class="inline-block h-2 w-2 rounded-full" style="background: #98a2b3" /> Calçada compartilhada {{ dec(mobility.bikeway_km_shared, 1) }} km</span>
-              <span><span class="inline-block h-2 w-2 rounded-full" style="background: #5d6675" /> Outros {{ dec(mobility.bikeway_km_other, 1) }} km</span>
+              <span v-for="part in bikewayParts" :key="part.key" class="inline-flex items-center gap-1.5">
+                <span class="inline-block h-2 w-2 rounded-full" :style="{ background: part.color }" />
+                {{ part.label }} {{ dec(part.value, 1) }} km
+              </span>
             </p>
           </div>
 

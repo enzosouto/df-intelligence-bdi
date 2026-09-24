@@ -120,12 +120,12 @@ def check_seedf(session) -> str:
 def check_idedf(session) -> str:
     base = "https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer"
     counts = {}
-    for layer, field in ((218, "cvia_km"), (140, "mto_situacao"), (127, "let_tipo")):
+    for layer, field in ((218, "cvia_km"), (140, "mto_situacao")):
         meta = get_json(session, f"{base}/{layer}?f=json")
         assert field in {f["name"] for f in meta["fields"]}, f"camada {layer}: campo {field} sumiu"
         counts[layer] = get_json(session, f"{base}/{layer}/query?where=1%3D1&returnCountOnly=true&f=json")["count"]
     assert counts[218] > 1000, f"apenas {counts[218]} trechos cicloviários"
-    return f"{counts[218]} trechos cicloviários, {counts[140]} estações de metrô, {counts[127]} estações/terminais"
+    return f"{counts[218]} trechos cicloviários, {counts[140]} estações de metrô"
 
 
 CHECKS = {

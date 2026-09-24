@@ -1,5 +1,5 @@
 /*
-  Infraestrutura de mobilidade por região. Grão: RA (as 35, inclusive as sem
+  Malha cicloviária e metrô por região. Grão: RA (as 35, inclusive as sem
   nenhuma infraestrutura — ali o zero é verdadeiro, porque as camadas cobrem o
   DF inteiro).
 
@@ -30,8 +30,7 @@ stations as (
     select
         region_id,
         count(*) filter (where station_kind = 'METRO' and is_operating)       as metro_stations,
-        count(*) filter (where station_kind = 'METRO' and not is_operating)   as metro_stations_building,
-        count(*) filter (where station_kind = 'BUS_TERMINAL' and is_operating) as bus_terminals
+        count(*) filter (where station_kind = 'METRO' and not is_operating)   as metro_stations_building
     from {{ ref('fct_mobility_station') }}
     where region_id is not null
     group by region_id
@@ -51,7 +50,6 @@ select
     bikeways.bikeway_last_year,
     coalesce(stations.metro_stations, 0)                   as metro_stations,
     coalesce(stations.metro_stations_building, 0)          as metro_stations_building,
-    coalesce(stations.bus_terminals, 0)                    as bus_terminals,
     'IDEDF_MOBILIDADE'                                     as source_id
 from regions
 left join bikeways on bikeways.region_id = regions.region_id

@@ -304,15 +304,21 @@ fonte é internamente consistente: 671,9 km declarados = 671,9 km geodésicos =
 671,9 km recortados, e nenhum trecho foge de ±25% entre declarado e medido.
 Teste: `assert_mobility_bikeway_km_reconciles` (folga de 1%).
 
-### 2.21 A camada de estações duplica o metrô
+### 2.21 A camada de estações duplica o metrô e omite a maior rodoviária
 
 A camada 127 ("Estações e Terminais") lista 17 "ESTAÇÃO METRÔ", que também
 estão na camada 140 ("Estação de Metrô", 27 em operação) com outro
-`objectid`. Somar as duas contaria estação duas vezes — e ainda assim ficaria
-incompleto. As 5 "ESTAÇÃO BRT" da camada 127 vêm sem nome.
+`objectid` — somar as duas contaria estação duas vezes. As 5 "ESTAÇÃO BRT"
+vêm sem nome. E os 21 "TERMINAIS DFTRANS" **não incluem a Rodoviária do Plano
+Piloto**, o maior terminal do DF — a própria camada de metrô diz que a
+Estação Central dá "acesso ao terminal rodoviário do Plano Piloto".
 
-**Tratamento:** metrô só da camada 140; da camada 127 entram apenas os 21
-terminais de ônibus. BRT fica de fora, com o motivo no catálogo de fontes.
+Achado na validação visual com dados reais: a página do Plano Piloto
+mostrava "Terminais de ônibus: 0".
+
+**Tratamento:** a camada 127 não é usada. Metrô vem só da camada 140;
+terminais e BRT não são publicados — uma contagem que dá zero onde está o
+maior terminal do DF afirmaria uma ausência que não existe (regra 3).
 Teste: `assert_mobility_metro_not_double_counted`.
 
 ### 2.22 O ano de construção não é a série histórica da malha

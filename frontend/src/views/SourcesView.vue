@@ -242,7 +242,7 @@ onMounted(load)
         <div class="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <article v-for="indicator in catalog" :key="indicator.indicator_id" class="card card-pad">
             <p class="label">{{ indicator.unit }}</p>
-            <h3 class="mt-2 font-display text-base font-semibold">{{ indicator.name }}</h3>
+            <h3 class="mt-2 font-display text-base font-semibold text-ink">{{ indicator.name }}</h3>
             <p class="mt-2 text-xs leading-relaxed text-muted">{{ indicator.description }}</p>
             <p class="mt-3 text-[11px] text-faint">{{ indicator.granularity }}</p>
             <p v-if="indicator.caveat" class="mt-3 border-t border-line pt-3 text-[11px] leading-relaxed text-warn/80">

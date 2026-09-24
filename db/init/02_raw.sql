@@ -189,6 +189,50 @@ CREATE TABLE IF NOT EXISTS raw.education_school_location (
     _ingested_at    timestamptz NOT NULL DEFAULT now()
 );
 
+-- Mobilidade: malha cicloviária, metrô e terminais (IDE-DF) -----------------
+-- Um trecho cicloviário como a IDE-DF publica. `declared_*` são os valores da
+-- fonte; o comprimento por RA NÃO sai daqui, e sim de mobility_bikeway_piece.
+CREATE TABLE IF NOT EXISTS raw.mobility_bikeway_segment (
+    segment_id            bigint PRIMARY KEY,         -- objectid da camada 218
+    declared_ra_name      text,
+    declared_km           double precision,
+    geodesic_km           double precision NOT NULL,
+    construction_year     integer,
+    construction_year_raw text,
+    typology              text,                        -- CICLOVIA, CICLOFAIXA, ...
+    road_type             text,                        -- VIAS URBANAS / RODOVIA
+    segment_name          text,
+    highway_name          text,
+    _source_url           text NOT NULL,
+    _ingested_at          timestamptz NOT NULL DEFAULT now()
+);
+
+-- Recorte geodésico de cada trecho pelas RAs oficiais. Um trecho que cruza a
+-- divisa tem uma linha por RA, com o km que está dentro de cada uma.
+CREATE TABLE IF NOT EXISTS raw.mobility_bikeway_piece (
+    segment_id   bigint NOT NULL,
+    ra_code      text   NOT NULL,
+    km           double precision NOT NULL,
+    _source_url  text NOT NULL,
+    _ingested_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (segment_id, ra_code)
+);
+
+-- Estações de metrô (camada 140) e terminais de ônibus (camada 127).
+CREATE TABLE IF NOT EXISTS raw.mobility_station (
+    station_kind   text   NOT NULL CHECK (station_kind IN ('METRO', 'BUS_TERMINAL')),
+    feature_id     bigint NOT NULL,
+    station_name   text,
+    status         text,
+    station_number text,
+    latitude       double precision NOT NULL,
+    longitude      double precision NOT NULL,
+    ra_code        text,
+    _source_url    text NOT NULL,
+    _ingested_at   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (station_kind, feature_id)
+);
+
 -- Migrações aditivas -------------------------------------------------------
 -- `CREATE TABLE IF NOT EXISTS` não altera tabela já existente. Colunas novas
 -- entram aqui para que o mesmo DDL sirva tanto para banco vazio quanto para

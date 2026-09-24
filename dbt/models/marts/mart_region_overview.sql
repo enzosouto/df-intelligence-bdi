@@ -73,6 +73,10 @@ education_reference as (
     where scope = 'DF' and is_year_complete and enrollment_total is not null
 ),
 
+mobility as (
+    select * from {{ ref('mart_mobility_region') }}
+),
+
 education as (
     select yearly.*
     from {{ ref('mart_education_yearly') }} as yearly
@@ -131,6 +135,11 @@ select
     education.enrollment_total               as education_enrollment,
     education.enrollment_public_share_pct    as education_enrollment_public_share_pct,
 
+    mobility.bikeway_km,
+    mobility.bikeway_km_per_10k,
+    mobility.metro_stations,
+    mobility.bus_terminals,
+
     weather_normals.temp_mean_c,
     weather_normals.temp_max_avg_c,
     weather_normals.temp_min_avg_c,
@@ -144,5 +153,6 @@ from regions
 left join security_metrics on security_metrics.region_id = regions.region_id
 left join weather_normals  on weather_normals.region_id  = regions.region_id
 left join health           on health.region_id           = regions.region_id
+left join mobility         on mobility.region_id         = regions.region_id
 cross join education_reference
 left join education        on education.region_id        = regions.region_id

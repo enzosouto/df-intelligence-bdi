@@ -271,6 +271,60 @@ education_artifact as (
     from education_artifact_year as artifact
 ),
 
+-- ---------------------------------------------------------------------------
+-- Mobilidade
+-- ---------------------------------------------------------------------------
+metro_reach as (
+    select
+        count(*) filter (where mobility.metro_stations > 0)                        as regions_with_metro,
+        count(*)                                                                   as total_regions,
+        sum(regions.population_2022) filter (where mobility.metro_stations > 0)    as population_with_metro,
+        sum(regions.population_2022)                                               as population_total,
+        sum(mobility.metro_stations)                                               as stations_operating,
+        sum(mobility.metro_stations_building)                                      as stations_building
+    from {{ ref('mart_mobility_region') }} as mobility
+    inner join {{ ref('dim_region') }}     as regions on regions.region_id = mobility.region_id
+),
+
+bikeway_windows as (
+    -- Janela de 3 anos consecutivos que concentra mais km da malha atual.
+    select
+        construction_year                                                     as window_start,
+        sum(current_network_km_built) over (
+            order by construction_year rows between current row and 2 following
+        )                                                                     as window_km,
+        count(*) over (
+            order by construction_year rows between current row and 2 following
+        )                                                                     as window_years
+    from {{ ref('mart_mobility_bikeway_yearly') }}
+    where scope = 'DF'
+),
+
+bikeway_peak as (
+    select
+        peak.window_start,
+        peak.window_start + 2                                                  as window_end,
+        peak.window_km,
+        (select max(current_network_km_cumulative) from {{ ref('mart_mobility_bikeway_yearly') }}
+          where scope = 'DF')                                                  as total_km,
+        (select min(construction_year) from {{ ref('mart_mobility_bikeway_yearly') }}) as first_year,
+        (select max(construction_year) from {{ ref('mart_mobility_bikeway_yearly') }}) as last_year
+    from bikeway_windows as peak
+    where peak.window_years = 3
+    order by peak.window_km desc
+    limit 1
+),
+
+bikeway_gap as (
+    select
+        min(overview.bikeway_km_per_10k) as min_rate,
+        max(overview.bikeway_km_per_10k) as max_rate,
+        (array_agg(overview.region_name order by overview.bikeway_km_per_10k asc))[1]  as lowest_region,
+        (array_agg(overview.region_name order by overview.bikeway_km_per_10k desc))[1] as highest_region
+    from {{ ref('mart_region_overview') }} as overview
+    where overview.bikeway_km_per_10k is not null and overview.population_2022 >= 20000
+),
+
 insights as (
 
     select
@@ -518,6 +572,70 @@ insights as (
         'SEEDF_EDUCACENSO',
         'Escolas conveniadas são privadas com vagas custeadas pelo GDF — sobretudo creches — e não entram na rede pública aqui.'
     from education_span
+
+    union all
+
+    select
+        'MOB_METRO_REACH',
+        'mobility',
+        'Alcance territorial do metrô',
+        format(
+            'O metrô tem %s estações em operação, distribuídas em %s das %s Regiões Administrativas. Nessas regiões moravam %s pessoas no Censo 2022 — %s%% da população do DF. Outras %s estações constam como em construção.',
+            stations_operating, regions_with_metro, total_regions,
+            {{ br_int('population_with_metro') }},
+            {{ br_decimal('100.0 * population_with_metro / nullif(population_total, 0)', 1) }},
+            stations_building
+        ),
+        round(100.0 * population_with_metro / nullif(population_total, 0), 1),
+        '%',
+        2022,
+        extract(year from current_date)::int,
+        'Estações da camada "Estação de Metrô" da IDE-DF, localizadas em RA pela geometria; população residente das RAs com ao menos uma estação em operação, pelo Censo 2022.',
+        'IDEDF_MOBILIDADE',
+        'Ter estação na RA não significa acesso a pé para todos os moradores: RAs extensas podem ter estação a quilômetros de parte da população. É uma medida de presença, não de acessibilidade.'
+    from metro_reach
+
+    union all
+
+    select
+        'MOB_BIKEWAY_PEAK',
+        'mobility',
+        'Quando a malha cicloviária atual foi construída',
+        format(
+            'Dos %s km de infraestrutura cicloviária registrados hoje no DF, %s km (%s%%) foram construídos entre %s e %s.',
+            {{ br_decimal('total_km', 0) }},
+            {{ br_decimal('window_km', 0) }},
+            {{ br_decimal('100.0 * window_km / nullif(total_km, 0)', 0) }},
+            window_start, window_end
+        ),
+        round(100.0 * window_km / nullif(total_km, 0), 1),
+        '%',
+        first_year,
+        last_year,
+        'Soma do comprimento geodésico dos trechos da camada "Sistema Cicloviário" da IDE-DF por ano de construção; janela de 3 anos consecutivos com maior soma.',
+        'IDEDF_MOBILIDADE',
+        'Considera só os trechos que existem hoje: trechos removidos ou reconstruídos não aparecem na camada. Não é a série histórica da malha.'
+    from bikeway_peak
+
+    union all
+
+    select
+        'MOB_BIKEWAY_GAP',
+        'mobility',
+        'Desigualdade na oferta de infraestrutura cicloviária',
+        format(
+            'A malha cicloviária varia de %s km por 10 mil habitantes em %s a %s em %s.',
+            {{ br_decimal('min_rate', 1) }}, lowest_region,
+            {{ br_decimal('max_rate', 1) }}, highest_region
+        ),
+        round(max_rate / nullif(min_rate, 0), 2),
+        'x',
+        2022,
+        extract(year from current_date)::int,
+        'Km de ciclovia, ciclofaixa e calçada compartilhada recortados por RA, divididos pela população do Censo 2022, restrito a RAs com pelo menos 20 mil habitantes.',
+        'IDEDF_MOBILIDADE',
+        'Mede extensão instalada, não qualidade, conectividade nem uso. Trechos em rodovias contam para a RA que atravessam.'
+    from bikeway_gap
 
     union all
 

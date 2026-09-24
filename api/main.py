@@ -19,6 +19,9 @@ from .schemas import (
     Coverage,
     EducationCoverage,
     EducationYear,
+    BikewayYear,
+    MobilityRegion,
+    MobilityStation,
     GeoJSONFeatureCollection,
     HealthFacility,
     HealthSummary,
@@ -39,8 +42,8 @@ Camada analítica sobre dados públicos do Distrito Federal.
 
 **Fontes**: IBGE (população e malha de subdistritos), IBRAM/ONDA-DF (limites das
 Regiões Administrativas), SSP-DF (balanço criminal mensal por RA), CNES/Ministério
-da Saúde (estabelecimentos de saúde), SEEDF/Educacenso (escolas e matrículas) e
-Open-Meteo/ERA5 (clima).
+da Saúde (estabelecimentos de saúde), SEEDF/Educacenso (escolas e matrículas), IDE-DF
+(malha cicloviária, metrô e terminais) e Open-Meteo/ERA5 (clima).
 
 ### Três coisas para saber antes de consumir
 
@@ -523,6 +526,70 @@ def get_education_coverage() -> list[dict]:
 
 
 # --------------------------------------------------------------------------- #
+# Mobilidade
+# --------------------------------------------------------------------------- #
+@app.get(
+    "/api/mobility",
+    response_model=list[MobilityRegion],
+    tags=["Mobilidade"],
+    summary="Malha cicloviária, metrô e terminais por RA",
+)
+def get_mobility(region_id: str | None = Query(None)) -> list[dict]:
+    """Infraestrutura instalada, com o km de cada trecho recortado pela divisa
+    das RAs. Mede presença e extensão, não qualidade nem uso."""
+    sql = """
+        select mobility.*, dim.region_name
+        from marts.mart_mobility_region as mobility
+        left join marts.dim_region as dim on dim.region_id = mobility.region_id
+        {where}
+        order by mobility.bikeway_km desc
+    """
+    if region_id:
+        return db.fetch_all(sql.format(where="where mobility.region_id = %s"), (region_id.upper(),))
+    return db.fetch_all(sql.format(where=""))
+
+
+@app.get(
+    "/api/mobility/bikeways/yearly",
+    response_model=list[BikewayYear],
+    tags=["Mobilidade"],
+    summary="Malha cicloviária atual por ano de construção",
+)
+def get_bikeway_yearly(
+    region_id: str | None = Query(None, description="Sem RA, devolve o DF inteiro."),
+) -> list[dict]:
+    """Km dos trechos que existem hoje, por ano de construção. **Não** é a
+    malha histórica: trechos removidos não aparecem na fonte."""
+    if region_id:
+        return db.fetch_all(
+            "select * from marts.mart_mobility_bikeway_yearly "
+            "where scope = 'RA' and region_id = %s order by construction_year",
+            (region_id.upper(),),
+        )
+    return db.fetch_all(
+        "select * from marts.mart_mobility_bikeway_yearly where scope = 'DF' order by construction_year"
+    )
+
+
+@app.get(
+    "/api/mobility/stations",
+    response_model=list[MobilityStation],
+    tags=["Mobilidade"],
+    summary="Estações de metrô e terminais de ônibus",
+)
+def get_mobility_stations(region_id: str | None = Query(None)) -> list[dict]:
+    sql = """
+        select station_kind, station_name, status, is_operating, latitude, longitude, region_id, region_name
+        from marts.fct_mobility_station
+        {where}
+        order by station_kind, station_name
+    """
+    if region_id:
+        return db.fetch_all(sql.format(where="where region_id = %s"), (region_id.upper(),))
+    return db.fetch_all(sql.format(where=""))
+
+
+# --------------------------------------------------------------------------- #
 # Clima
 # --------------------------------------------------------------------------- #
 @app.get(
@@ -784,6 +851,26 @@ def _indicator_catalog() -> list[dict]:
             "source_id": "SEEDF_EDUCACENSO",
             "description": "Educação infantil, fundamental, médio (com integrado), profissional, EJA e especial.",
             "caveat": "Contadas onde a escola fica, não onde o aluno mora. Anos com arquivo incompleto ficam nulos; 2024 sem total.",
+        },
+        {
+            "indicator_id": "mobility_bikeway",
+            "domain": "mobility",
+            "name": "Malha cicloviária",
+            "unit": "km / km por 10 mil hab.",
+            "granularity": "Região Administrativa",
+            "source_id": "IDEDF_MOBILIDADE",
+            "description": "Ciclovia, ciclofaixa e calçada compartilhada, com o trecho recortado pela divisa das RAs.",
+            "caveat": "Retrato do presente. A série por ano de construção não é a malha histórica.",
+        },
+        {
+            "indicator_id": "mobility_transit",
+            "domain": "mobility",
+            "name": "Estações de metrô e terminais de ônibus",
+            "unit": "estações",
+            "granularity": "Região Administrativa",
+            "source_id": "IDEDF_MOBILIDADE",
+            "description": "Estações de metrô em operação e terminais de ônibus ativos, localizados pela geometria.",
+            "caveat": "Presença na RA não é acessibilidade a pé. Estações de BRT não entram (camada sem nome).",
         },
         {
             "indicator_id": "weather_temperature",

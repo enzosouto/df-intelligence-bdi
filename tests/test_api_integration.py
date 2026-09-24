@@ -227,3 +227,21 @@ def test_enrollment_gap_insight_proves_the_artifact(client):
     gap = insights.get("EDU_ENROLLMENT_FILE_GAP")
     if gap:
         assert 50 <= gap["value_numeric"] <= 110, gap["finding"]
+
+
+# --------------------------------------------------------------------------- #
+# Mobilidade
+# --------------------------------------------------------------------------- #
+def test_bikeway_km_is_clipped_not_double_counted(client):
+    """Trechos que cruzam divisa são recortados: a soma das RAs não pode passar
+    do total da série do DF."""
+    regions = client.get("/api/mobility").json()
+    assert len(regions) == EXPECTED_REGIONS
+    df_total = client.get("/api/mobility/bikeways/yearly").json()[-1]["current_network_km_cumulative"]
+    assert sum(r["bikeway_km"] for r in regions) == pytest.approx(df_total, rel=0.01)
+
+
+def test_metro_comes_from_a_single_layer(client):
+    stations = [s for s in client.get("/api/mobility/stations").json() if s["station_kind"] == "METRO"]
+    names = [s["station_name"] for s in stations]
+    assert len(names) == len(set(names)), "estação de metrô contada duas vezes"

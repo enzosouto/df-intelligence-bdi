@@ -292,6 +292,39 @@ Teste de integração verifica que a série não varia mais de 5% entre 2024 e
 partir dos runners do GitHub. A SEEDF republica o mesmo Censo Escolar recortado
 para o DF, com a RA — por isso é a fonte usada.
 
+### 2.20 Trechos cicloviários cruzam a divisa entre RAs
+
+Dos 2.293 trechos da camada 218 da IDE-DF, 35 atravessam a divisa entre duas
+RAs e 47 declaram (`cvia_ra`) uma RA diferente da que contém a maior parte da
+geometria.
+
+**Tratamento:** o km por RA vem do **recorte geodésico** de cada trecho pelos
+polígonos oficiais (elipsoide WGS84, `pyproj.Geod`), não da RA declarada. A
+fonte é internamente consistente: 671,9 km declarados = 671,9 km geodésicos =
+671,9 km recortados, e nenhum trecho foge de ±25% entre declarado e medido.
+Teste: `assert_mobility_bikeway_km_reconciles` (folga de 1%).
+
+### 2.21 A camada de estações duplica o metrô
+
+A camada 127 ("Estações e Terminais") lista 17 "ESTAÇÃO METRÔ", que também
+estão na camada 140 ("Estação de Metrô", 27 em operação) com outro
+`objectid`. Somar as duas contaria estação duas vezes — e ainda assim ficaria
+incompleto. As 5 "ESTAÇÃO BRT" da camada 127 vêm sem nome.
+
+**Tratamento:** metrô só da camada 140; da camada 127 entram apenas os 21
+terminais de ônibus. BRT fica de fora, com o motivo no catálogo de fontes.
+Teste: `assert_mobility_metro_not_double_counted`.
+
+### 2.22 O ano de construção não é a série histórica da malha
+
+A camada é um retrato do presente. Somar os km por ano de construção mostra
+quando foram feitos os trechos **que existem hoje** — um trecho removido em
+2018 não aparece em lugar nenhum.
+
+**Tratamento:** as colunas se chamam `current_network_km_built` e
+`current_network_km_cumulative`, e a interface diz "malha atual por ano de
+construção".
+
 ---
 
 ## 3. Testes do dbt
@@ -377,6 +410,7 @@ na API (`caveat` em `/api/sources` e `/api/insights`) e na interface.
 | Taxas usam população residente | RAs com muito fluxo diário de não residentes (SIA, Plano Piloto) têm taxa inflada: o denominador conta só quem mora. |
 | Denominador é sempre o Censo 2022 | Taxas de anos distantes de 2022 carregam esse denominador. `population_reference_year` acompanha o número. |
 | CNES mede infraestrutura, não produção | "46 estabelecimentos" não diz quantos atendimentos foram feitos. |
+| Mobilidade mede infraestrutura instalada | Km de ciclovia e estação na RA não dizem nada sobre uso, qualidade ou acesso a pé. |
 | Matrícula é contada onde a escola fica | Não mede a escolarização dos moradores da RA. Por isso não há taxa de matrícula por habitante. |
 | Oferta instalada ≠ acesso | Moradores se deslocam entre RAs para se tratar. |
 | Clima é reanálise, não medição | Open-Meteo/ERA5 é fonte externa e não governamental, com resolução mais grossa que uma RA. |

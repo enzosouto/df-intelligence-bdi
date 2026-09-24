@@ -8,7 +8,7 @@ Regiões Administrativas — com ingestão automatizada, modelagem dimensional,
 testes de qualidade, API e interface.
 
 ```
-35 Regiões Administrativas  ·  5 domínios  ·  9 fontes catalogadas
+35 Regiões Administrativas  ·  6 domínios  ·  10 fontes catalogadas
 70.035 ocorrências criminais (2014–2026)  ·  98.630 dias de clima
 2.460 estabelecimentos de saúde  ·  105 testes de qualidade
 ```
@@ -61,6 +61,7 @@ flowchart LR
         A3["SSP-DF"]
         A4["CNES · Min. Saúde"]
         A6["SEEDF · Educacenso"]
+        A7["IDE-DF · Mobilidade"]
         A5["Open-Meteo · ERA5"]
     end
 
@@ -116,12 +117,13 @@ cobertura e limitações, em [`docs/data_sources.md`](docs/data_sources.md).
 | Segurança | SSP-DF — Balanço Criminal | HTML + 331 planilhas | RA × mês × natureza | 2014–2026 |
 | Saúde | CNES / Ministério da Saúde | API REST | Estabelecimento → RA | posição atual |
 | Educação | SEEDF / Inep — Educacenso | API CKAN + 24 CSVs | Escola → RA × ano | 2014–2025 |
+| Mobilidade | IDE-DF / SEDUH | API ArcGIS REST | Trecho e estação → RA | posição atual |
 | Clima | Open-Meteo / ERA5 | API REST | Célula de grade × dia | 2019–hoje |
 
 **Rejeitadas, com o motivo registrado:** Portal de Dados Abertos do DF (perdeu a
 API), InfoSaúde/SES-DF (painéis BI, agregação por Região de Saúde), INMET
 (estações concentradas demais para 35 RAs), microdados do Inep (cadeia TLS
-incompleta, sem RA), Kaggle e agregadores não oficiais.
+incompleta, sem RA), SEMOB e DETRAN (não respondem fora do Brasil), Kaggle e agregadores não oficiais.
 
 > **Ressalva obrigatória:** o clima vem do Open-Meteo/ERA5 — fonte **externa e
 > não governamental**. São valores de modelo de reanálise interpolados, não
@@ -211,6 +213,7 @@ uma vez o mapeamento RA↔subdistrito, a ingestão e a ausência de duplicata.
 | Fronteiras mudaram entre os Censos | "Ceilândia perdeu 29% da população" — publicado como fato. |
 | Códigos de RA 34/35 invertidos na SEEDF (e nome trocado em 2025) | Escolas do Arapoanga contadas em Água Quente. RA passou a vir da coordenada. |
 | Arquivos de matrículas omitem escolas ativas em 8 de 12 anos (2023: 600 de 1.264) | "Queda de 4% de 2014 para 2015" — 94% dela são escolas ausentes do arquivo. Completude medida por ano × rede; esses anos viram lacuna. |
+| Camada de estações repete 17 estações de metrô | Metrô contado duas vezes. Só a camada dedicada entra. |
 | Ensino médio reclassificado como integrado em 2025 | "Ensino médio perdeu 11% dos alunos". Série publicada como médio + integrado. |
 
 **Limitações declaradas na API e na interface:** dados de segurança são
@@ -352,6 +355,7 @@ df-intelligence/
 │   ├── security.py     # 331 planilhas da SSP-DF
 │   ├── health.py       # CNES + join espacial
 │   ├── education.py    # Educacenso (SEEDF): 24 CSVs, RA pela coordenada
+│   ├── mobility.py     # IDE-DF: ciclovias recortadas por RA, metrô, terminais
 │   ├── weather.py      # Open-Meteo, incremental
 │   └── validate_sources.py
 ├── db/init/            # DDL dos schemas raw e meta
@@ -437,7 +441,8 @@ Estas são propriedades das fontes, não do pipeline. Estão declaradas na API
 
 ## Próximos passos
 
-- Mobilidade como novo domínio.
+- Acidentes de trânsito por RA (DETRAN-DF), quando houver execução a partir do Brasil.
+- Acessibilidade ao metrô: população a até 1 km de estação, com a população por setor censitário da IDE-DF.
 - Resultados de aprendizagem por escola (SAEB/IDEB, também publicados pela SEEDF).
 - Produção de atendimentos em saúde, se o GDF publicar API para o novo portal.
 - Validação cruzada do clima com a estação do INMET em Brasília.

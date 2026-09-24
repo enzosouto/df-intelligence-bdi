@@ -17,6 +17,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   no dbt e 4 testes de integração, cada um codificando um achado dos arquivos
   reais (ver `docs/data_quality.md`, 2.13–2.19).
 
+- **Domínio de mobilidade** (IDE-DF): malha cicloviária com recorte geodésico
+  por RA, estações de metrô e terminais de ônibus. `ingestion/mobility.py`,
+  `fct_mobility_bikeway`, `fct_mobility_station`, `mart_mobility_region`,
+  `mart_mobility_bikeway_yearly`, endpoints `/api/mobility`,
+  `/api/mobility/bikeways/yearly` e `/api/mobility/stations`, seção na página
+  de região e três insights. Achados em `docs/data_quality.md`, 2.20–2.22.
+  SEMOB e DETRAN rejeitados: não respondem a partir do runner do GitHub.
+
 ### Decisões de fonte (educação)
 - **RA pela coordenada, não pela declaração.** Os códigos 34/35 da SEEDF estão
   invertidos em relação à numeração oficial em todos os anos, e o nome veio

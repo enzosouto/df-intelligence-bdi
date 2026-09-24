@@ -44,7 +44,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: pytest
-        run: pytest tests/test_security_parser.py tests/test_ingestion_units.py tests/test_education_parser.py
+        run: pytest tests/test_security_parser.py tests/test_ingestion_units.py tests/test_education_parser.py tests/test_mobility.py
 
   frontend:
     name: Frontend (typecheck + build)

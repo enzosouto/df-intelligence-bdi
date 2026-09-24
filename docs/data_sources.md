@@ -48,9 +48,12 @@ Essa restrição molda todo o modelo de dados do projeto e está documentada em
 | SSP-DF | Balanço Criminal — Dados por Região Administrativa | `https://www.ssp.df.gov.br/dados-por-regiao-administrativa/` | Página HTML + XLS/XLSX | 2014–2026 | RA × mês × natureza | Mensal | **VALIDADA** |
 | Ministério da Saúde / CNES | Estabelecimentos de saúde | `https://apidadosabertos.saude.gov.br/cnes/estabelecimentos?codigo_municipio=530010` | API REST (JSON) | Posição atual | Estabelecimento (lat/lon → RA) | Mensal | **VALIDADA** |
 | SEEDF / Inep | Série histórica de unidades escolares e de matrículas (Educacenso) | `https://data.se.df.gov.br/api/3/action/package_show?id=...` | API CKAN + CSV | 2014–2025 | Escola (lat/lon → RA) × ano | Anual | **VALIDADA** |
+| IDE-DF / SEDUH (GDF) | Sistema Cicloviário (218), Estação de Metrô (140), Estações e Terminais (127) | `https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer/{camada}/query` | API ArcGIS REST (GeoJSON) | Posição atual | Trecho/estação → RA | Eventual | **VALIDADA** |
 | Open-Meteo | Historical Weather API (ERA5) | `https://archive-api.open-meteo.com/v1/archive` | API REST (JSON) | 1940–hoje | Ponto (centroide da RA) × dia | Diária (D-5) | **VALIDADA** |
 | Portal de Dados Abertos do DF | Catálogo geral | `https://www.dados.df.gov.br/` | SPA Liferay 7.4 | — | — | — | **REJEITADA** |
 | Inep | Microdados do Censo Escolar | `https://download.inep.gov.br/dados_abertos/microdados_censo_escolar_{ano}.zip` | ZIP | — | — | — | **REJEITADA** |
+| SEMOB-DF | GeoServer (paradas e linhas de ônibus), portal | `https://geoserver.semob.df.gov.br/geoserver/semob/ows` | WFS | — | — | — | **REJEITADA** |
+| DETRAN-DF | Acidentes de trânsito (portal e `dados.df.gov.br`) | `https://www.detran.df.gov.br/dados-anuais/` | HTML/CSV | — | — | — | **REJEITADA** |
 | SES-DF / InfoSaúde | Dados abertos da saúde | `https://info.saude.df.gov.br/transparencia-e-prestacao-de-contas/dados-abertos/` | Painéis BI | — | — | — | **REJEITADA** |
 
 ---
@@ -221,6 +224,28 @@ Essa restrição molda todo o modelo de dados do projeto e está documentada em
   os códigos de RA 34/35 vêm invertidos. Detalhes e tratamento em
   [`data_quality.md`](./data_quality.md), seções 2.13 a 2.18.
 
+### 3.9 Mobilidade — IDE-DF (SEDUH)
+
+* **Serviço:** `Publico/IDEDF/FeatureServer`, 240 camadas. Responde em ~1 s a
+  partir do runner do GitHub. Paginação de 1.000 registros, ordenada por
+  `objectid`; geometria pedida em `outSR=4326` (a nativa é SIRGAS 2000 /
+  UTM 23S, EPSG:31983).
+* **Camadas usadas:**
+  * **218 Sistema Cicloviário** — 2.293 trechos, 671,9 km, com RA declarada,
+    km, ano de construção (2002–2023, todos preenchidos) e tipologia
+    (1.764 ciclovias, 259 ciclofaixas, 201 calçadas compartilhadas, 69 outros).
+  * **140 Estação de Metrô** — 29 estações: 27 em operação, 2 em construção
+    (Onoyama e 104 Sul).
+  * **127 Estações e Terminais** — só os 21 "TERMINAIS DFTRANS". As 17
+    "ESTAÇÃO METRÔ" repetem a camada 140; as 5 "ESTAÇÃO BRT" vêm sem nome.
+* **Uso:** `fct_mobility_bikeway` (trecho × RA, recorte geodésico),
+  `fct_mobility_station`, `mart_mobility_region`,
+  `mart_mobility_bikeway_yearly`.
+* **Limitações:** retrato do presente, sem data de atualização publicada. A
+  série por ano de construção descreve os trechos atuais, não a malha histórica.
+  Mede infraestrutura, não uso nem qualidade. Detalhes em
+  [`data_quality.md`](./data_quality.md), 2.20 a 2.22.
+
 ---
 
 ## 4. Fontes rejeitadas (e por quê)
@@ -277,6 +302,21 @@ série de Brasília.
 issuer certificate` (2024, 2025) — cadeia TLS incompleta. Desligar a
 verificação de certificado não é opção. Além disso, os microdados nacionais
 não trazem a RA. A SEEDF (3.8) republica o mesmo censo já recortado para o DF.
+
+### 4.3.2 SEMOB-DF e DETRAN-DF
+
+Testados a partir do runner do GitHub Actions (setembro de 2026):
+
+* `geoserver.semob.df.gov.br` (WFS de paradas e linhas): `ConnectTimeout` —
+  a conexão nem é aceita.
+* `www.semob.df.gov.br`, `www.detran.df.gov.br/dados-anuais/` e
+  `www.dados.df.gov.br/dataset/...` (acidentes com vítimas fatais):
+  `ReadTimeout` mesmo com 30 s de espera.
+
+O padrão (IDE-DF, SEEDF e IBRAM respondem na hora; estes nem abrem) sugere
+bloqueio de IP de fora do Brasil, mas isso não foi confirmado. Enquanto o
+pipeline roda no GitHub, essas fontes não são viáveis. Acidentes de trânsito
+por RA ficam como próximo passo para execução local.
 
 ### 4.4 Kaggle e agregadores não oficiais
 

@@ -49,6 +49,11 @@ export interface RegionIndicators {
   education_enrollment: number | null
   education_enrollment_public_share_pct: number | null
 
+  bikeway_km: number | null
+  bikeway_km_per_10k: number | null
+  metro_stations: number | null
+  bus_terminals: number | null
+
   temp_mean_c: number | null
   temp_max_avg_c: number | null
   temp_min_avg_c: number | null
@@ -137,7 +142,7 @@ export interface HealthSummary {
 
 export interface Insight {
   insight_id: string
-  domain: 'population' | 'security' | 'health' | 'education' | 'weather' | 'quality'
+  domain: 'population' | 'security' | 'health' | 'education' | 'mobility' | 'weather' | 'quality'
   title: string
   finding: string
   value_numeric: number | null
@@ -203,6 +208,33 @@ export interface EducationYear {
   professional: number | null
   youth_adult: number | null
   special_total: number | null
+  source_id: string
+}
+
+export interface MobilityRegion {
+  region_id: string
+  region_name: string | null
+  bikeway_km: number
+  bikeway_km_segregated: number
+  bikeway_km_painted: number
+  bikeway_km_shared: number
+  bikeway_km_other: number
+  bikeway_km_per_10k: number | null
+  bikeway_first_year: number | null
+  bikeway_last_year: number | null
+  metro_stations: number
+  metro_stations_building: number
+  bus_terminals: number
+  source_id: string
+}
+
+/** Km dos trechos que existem HOJE, por ano de construção — não a malha histórica. */
+export interface BikewayYear {
+  scope: 'RA' | 'DF'
+  region_id: string | null
+  construction_year: number
+  current_network_km_built: number
+  current_network_km_cumulative: number
   source_id: string
 }
 

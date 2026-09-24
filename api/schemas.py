@@ -96,6 +96,15 @@ class RegionIndicators(BaseModel):
     )
     education_enrollment_public_share_pct: float | None = None
 
+    bikeway_km: float | None = Field(
+        default=None, description="Km de ciclovia, ciclofaixa e calçada compartilhada dentro da RA (recorte geodésico)."
+    )
+    bikeway_km_per_10k: float | None = Field(
+        default=None, description="Km por 10 mil habitantes (Censo 2022). Nulo onde o IBGE não publica população."
+    )
+    metro_stations: int | None = Field(default=None, description="Estações de metrô em operação na RA.")
+    bus_terminals: int | None = Field(default=None, description="Terminais de ônibus ativos na RA.")
+
     temp_mean_c: float | None
     temp_max_avg_c: float | None
     temp_min_avg_c: float | None
@@ -207,7 +216,7 @@ class HealthFacility(BaseModel):
 
 class Insight(BaseModel):
     insight_id: str
-    domain: Literal["population", "security", "health", "education", "weather", "quality"]
+    domain: Literal["population", "security", "health", "education", "mobility", "weather", "quality"]
     title: str
     finding: str = Field(description="Texto gerado a partir dos dados, não redigido à mão.")
     value_numeric: float | None
@@ -285,6 +294,45 @@ class EducationYear(BaseModel):
     youth_adult: int | None = Field(description="Educação de Jovens e Adultos (EJA).")
     special_total: int | None
     source_id: str
+
+
+class MobilityRegion(BaseModel):
+    region_id: str
+    region_name: str | None = None
+    bikeway_km: float = Field(description="Km dentro da RA, com trechos que cruzam a divisa recortados.")
+    bikeway_km_segregated: float = Field(description="Ciclovia (segregada do tráfego).")
+    bikeway_km_painted: float = Field(description="Ciclofaixa (pintada na pista).")
+    bikeway_km_shared: float = Field(description="Calçada compartilhada com pedestres.")
+    bikeway_km_other: float = Field(description="Infraestrutura em parques, ciclorrotas e zonas 30.")
+    bikeway_km_per_10k: float | None
+    bikeway_first_year: int | None
+    bikeway_last_year: int | None
+    metro_stations: int = Field(description="Estações de metrô em operação.")
+    metro_stations_building: int = Field(description="Estações de metrô registradas como em construção.")
+    bus_terminals: int
+    source_id: str
+
+
+class BikewayYear(BaseModel):
+    scope: Literal["RA", "DF"]
+    region_id: str | None = None
+    construction_year: int
+    current_network_km_built: float = Field(
+        description="Km dos trechos QUE EXISTEM HOJE construídos neste ano. Não é a malha que existia no ano."
+    )
+    current_network_km_cumulative: float
+    source_id: str
+
+
+class MobilityStation(BaseModel):
+    station_kind: Literal["METRO", "BUS_TERMINAL"]
+    station_name: str | None
+    status: str | None
+    is_operating: bool
+    latitude: float
+    longitude: float
+    region_id: str | None
+    region_name: str | None = None
 
 
 class EducationCoverage(BaseModel):

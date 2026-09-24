@@ -20,6 +20,7 @@ export default {
         health: '#4CC2FF',
         weather: '#A98BFF',
         education: '#C3E86B',
+        mobility: '#FF8A4C',
         warn: '#F5A524',
       },
       fontFamily: {

@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [semob, idedf, detran]
+        target: [semob, layers, detran]
     steps:
       - uses: actions/checkout@v4
       - run: pip install -q requests && timeout 300 python -u scripts/probe_sources.py ${{ matrix.target }}

@@ -5,7 +5,7 @@ s.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.
 
 def get(url, **kw):
     try:
-        r = s.get(url, timeout=(15, 60), **kw)
+        r = s.get(url, timeout=(30, 90), **kw)
         print(f"GET {r.status_code} {r.headers.get('content-type')} {len(r.content)}B {url[:160]}", flush=True)
         return r
     except Exception as e:
@@ -47,6 +47,23 @@ elif t == "idedf":
                 print("  folders:", d.get("folders")); print("  services:", [x.get("name") for x in d.get("services", [])][:60])
                 print("  layers:", [(l["id"], l["name"]) for l in d.get("layers", [])][:400])
             except Exception: print(r.text[:300])
+elif t == "layers":
+    section("IDE-DF camadas de mobilidade")
+    base = "https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer"
+    for lid in (218, 140, 141, 127, 162, 131):
+        r = get(f"{base}/{lid}?f=json")
+        if r is None or not r.ok: continue
+        meta = r.json()
+        print(f"\n## {lid} {meta.get('name')} | geom={meta.get('geometryType')} | maxRecord={meta.get('maxRecordCount')} | srid={meta.get('extent',{}).get('spatialReference')}")
+        print("  editingInfo:", meta.get("editingInfo"), "| description:", (meta.get("description") or "")[:300])
+        print("  fields:", [(f["name"], f["type"].replace("esriFieldType", "")) for f in meta.get("fields", [])])
+        c = get(f"{base}/{lid}/query", params={"where": "1=1", "returnCountOnly": "true", "f": "json"})
+        if c is not None and c.ok: print("  count:", c.json())
+        q = get(f"{base}/{lid}/query", params={"where": "1=1", "outFields": "*", "resultRecordCount": 3, "outSR": 4326, "f": "geojson"})
+        if q is not None and q.ok:
+            for f in q.json().get("features", [])[:3]:
+                g = f.get("geometry") or {}
+                print("  props:", json.dumps(f.get("properties"), ensure_ascii=False)[:500], "| geom:", g.get("type"), str(g.get("coordinates"))[:120])
 elif t == "detran":
     section("DETRAN-DF")
     for u in ("https://www.dados.df.gov.br/dataset/acidentes-de-transito-nas-vias-urbanas-do-distrito-federal-nos-ultimos-10-anos-com-vitimas-fatais",

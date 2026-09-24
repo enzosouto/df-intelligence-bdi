@@ -52,23 +52,50 @@ def pick(res, *needles, fmt=None):
         if all(n.lower() in name.lower() for n in needles) and (fmt is None or (rs.get("format") or "").upper() == fmt):
             return rs["url"]
 
+def head_rows(url, n=4):
+    """Baixa só o começo do arquivo (streaming) e mostra as primeiras linhas."""
+    r = s.get(url, timeout=(15, 120), stream=True)
+    buf = b""
+    for chunk in r.iter_content(65536):
+        buf += chunk
+        if buf.count(b"\n") > n + 2 or len(buf) > 400000: break
+    r.close()
+    text, enc = decode(buf)
+    delim = max(";,\t|", key=text[:5000].count)
+    rows = list(csv.reader(io.StringIO(text), delimiter=delim))[:n]
+    print(f"  enc={enc} delim={delim!r}")
+    for row in rows: print("  >", row)
+
+def by_year(res, fmt="CSV"):
+    out = {}
+    for rs in res:
+        if (rs.get("format") or "").upper() != fmt: continue
+        for y in range(2014, 2027):
+            if str(y) in (rs.get("name") or "") + rs["url"]:
+                out[y] = rs["url"]
+    return dict(sorted(out.items()))
+
 target = sys.argv[1]
-if target == "escolas":
-    section("UNIDADES ESCOLARES")
+if target == "escolas_all":
     res = resources("relacao-de-unidades-escolares-abrangendo-todas-as-redes-de-ensino-do-distrito-federal")
-    show_csv(pick(res, "dicionario"), full=False)
-    show_csv(pick(res, "2025", fmt="CSV"), full=True)
-    show_csv(pick(res, "2014", fmt="CSV"))
-elif target == "matriculas":
-    section("MATRÍCULAS")
+    for y, url in by_year(res).items():
+        section(f"ESCOLAS {y}")
+        header, rows = show_csv(url)
+        # pares (código RA, nome RA) — localizados pelo NOME da coluna
+        flat = [h.strip().upper() for h in (rows[1] if "NU_ANO_CENSO" not in [h.strip() for h in header] and len(rows) > 1 else header)]
+        hdr_idx = 1 if flat != [h.strip().upper() for h in header] else 0
+        cols = [h.strip().upper() for h in rows[hdr_idx]]
+        ra_i = next((i for i, c in enumerate(cols) if c in ("CO_RA", "RA")), None)
+        nm_i = next((i for i, c in enumerate(cols) if c in ("NO_RA", "NOME RA")), None)
+        rede_i = next((i for i, c in enumerate(cols) if c in ("CO_REDE", "REDE")), None)
+        if ra_i is not None and nm_i is not None:
+            pairs = collections.Counter((r[ra_i], r[nm_i]) for r in rows[hdr_idx + 1:] if len(r) > nm_i)
+            print("  RA PAIRS:", sorted(pairs.items(), key=lambda kv: int(kv[0][0]) if kv[0][0].isdigit() else 999))
+        if rede_i is not None:
+            print("  REDE:", collections.Counter(r[rede_i] for r in rows[hdr_idx + 1:] if len(r) > rede_i))
+        print("  linhas de dados:", len(rows) - hdr_idx - 1)
+elif target == "matriculas_all":
     res = resources("quantidade-de-matriculas-das-modalidades-de-ensino-abrangendo-todas-as-redes-de-ensino-do-df")
-    show_csv(pick(res, "dicionario"))
-    show_csv(pick(res, "2025", fmt="CSV"), full=True)
-    g = pick(res, "2025", fmt="GEOJSON")
-    if g: show_geojson(g)
-elif target == "docentes":
-    section("DOCENTES + INFRA")
-    res = resources("total-de-docentes-abrangendo-todas-as-redes-de-ensino-do-df")
-    show_csv(pick(res, "2025", fmt="CSV"))
-    res = resources("dados-de-infraestrutura-abrangendo-todas-as-redes-de-ensino-df")
-    show_csv(pick(res, "2025", fmt="CSV"))
+    for y, url in by_year(res).items():
+        section(f"MATRICULAS {y}")
+        head_rows(url)

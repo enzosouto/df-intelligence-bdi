@@ -1,0 +1,58 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Camada RAW, escrita pela ingestão Python. Uma tabela por recurso de fonte,
+      sem regra de negócio. Toda tabela carrega `_source_url` e `_ingested_at`.
+    schema: raw
+    tables:
+      - name: region_geo
+        description: Malha das 35 Regiões Administrativas (IBRAM/ONDA-DF, 2025).
+        columns:
+          - name: ra_code
+            description: Código romano da RA (`RA-I` … `RA-XXXV`). Chave canônica do projeto.
+            tests: [unique, not_null]
+          - name: area_km2
+            description: Área geodésica calculada do polígono WGS84.
+            tests: [not_null]
+
+      - name: ibge_subdistrict
+        description: Subdistritos IBGE de Brasília. No DF, subdistrito = Região Administrativa.
+        columns:
+          - name: subdistrict_id
+            tests: [unique, not_null]
+
+      - name: population_census
+        description: População residente por subdistrito, Censos 2010 e 2022.
+        columns:
+          - name: population
+            tests: [not_null]
+
+      - name: population_df_estimate
+        description: População residente estimada do DF, série anual do IBGE.
+
+      - name: security_occurrence
+        description: Balanço Criminal mensal por RA (SSP-DF), grão RA × ano × mês × natureza.
+        columns:
+          - name: occurrences
+            tests: [not_null]
+
+      - name: health_facility
+        description: Estabelecimentos de saúde do CNES em Brasília, com RA atribuída por geolocalização.
+        columns:
+          - name: cnes_code
+            tests: [unique, not_null]
+
+      - name: health_unit_type
+        description: Domínio de tipos de unidade do CNES, obtido da própria API.
+
+      - name: weather_daily
+        description: Série diária de clima por RA (Open-Meteo/ERA5). Fonte NÃO governamental.
+
+  - name: meta
+    description: Observabilidade do pipeline.
+    schema: meta
+    tables:
+      - name: ingestion_run
+      - name: data_quality_check

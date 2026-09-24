@@ -1,0 +1,231 @@
+version: 2
+
+models:
+  - name: dim_region
+    description: >
+      Dimensão das 35 Regiões Administrativas do DF. Identidade nas duas
+      nomenclaturas (GDF e IBGE), geografia oficial, população dos Censos e
+      marcas de linhagem territorial que dizem quando a comparação 2010↔2022 é
+      legítima.
+    columns:
+      - name: region_id
+        description: Código romano da RA (`RA-I` … `RA-XXXV`). Chave do modelo inteiro.
+        tests: [unique, not_null]
+      - name: region_number
+        description: Número da RA (1 a 35).
+        tests: [unique, not_null]
+      - name: region_name
+        description: Nome oficial na grafia do IBGE.
+        tests: [unique, not_null]
+      - name: ibge_subdistrict_id
+        description: Subdistrito IBGE correspondente. Chave para as APIs do SIDRA.
+        tests: [unique, not_null]
+      - name: area_km2
+        description: >
+          Área geodésica em km², calculada do polígono WGS84. A faixa plausível
+          é validada em `tests/assert_region_measures_are_plausible.sql`.
+        tests: [not_null]
+      - name: name_match_method
+        tests:
+          - accepted_values:
+              values: ["normalized_exact", "manual_reviewed"]
+      - name: existed_in_2010
+        tests: [not_null]
+      - name: is_growth_comparable
+        description: >
+          True apenas quando a RA existia em 2010 E não cedeu território a
+          nenhuma RA criada depois. Só nesses casos o crescimento populacional
+          é publicado.
+        tests: [not_null]
+
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+      - name: season
+        tests:
+          - accepted_values:
+              values: ["SECA", "CHUVOSA"]
+
+  - name: dim_source
+    description: Catálogo de fontes com órgão, URL, periodicidade e ressalva metodológica.
+    columns:
+      - name: source_id
+        tests: [unique, not_null]
+      - name: is_df_government
+        description: Distingue fonte do Governo do DF de fonte federal ou externa.
+        tests: [not_null]
+
+  - name: dim_category
+    columns:
+      - name: domain
+        tests:
+          - accepted_values:
+              values: ["SECURITY", "HEALTH"]
+      - name: metric_type
+        tests:
+          - accepted_values:
+              values: ["CRIME", "POLICE_ACTIVITY", "INFRASTRUCTURE"]
+
+  - name: fct_population
+    columns:
+      - name: region_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region_id
+      - name: reference_year
+        tests:
+          - not_null
+          - accepted_values:
+              values: [2010, 2022]
+              quote: false
+      - name: population
+        tests: [not_null]
+
+  - name: fct_population_df
+    columns:
+      - name: reference_year
+        tests: [unique, not_null]
+      - name: population
+        tests: [not_null]
+
+  - name: fct_security_monthly
+    description: Ocorrências por região, mês e natureza criminal (SSP-DF).
+    columns:
+      - name: region_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region_id
+      - name: nature_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_category')
+              field: category_id
+      - name: reference_month
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+              quote: false
+      - name: metric_type
+        tests:
+          - accepted_values:
+              values: ["CRIME", "POLICE_ACTIVITY"]
+      - name: occurrences
+        description: >
+          Unicidade do grão (região × ano × mês × natureza) é validada em
+          `tests/assert_security_grain_is_unique.sql`.
+        tests: [not_null]
+
+  - name: fct_health_facility
+    columns:
+      - name: cnes_code
+        tests: [unique, not_null]
+      - name: region_id
+        description: Nulo quando não foi possível determinar a RA — nunca chutado.
+        tests:
+          - relationships:
+              to: ref('dim_region')
+              field: region_id
+      - name: region_assignment
+        tests:
+          - accepted_values:
+              values: ["OK", "LOW", "INFERRED_NEIGHBORHOOD", "UNRESOLVED"]
+      - name: sector
+        description: >
+          Derivado do primeiro dígito da natureza jurídica (tabela CONCLA/IBGE).
+          NÃO usa `descricao_esfera_administrativa`: esse campo indica quem
+          gerencia no SUS e vale "ESTADUAL" para quase toda a rede do DF,
+          inclusive consultórios particulares.
+        tests:
+          - accepted_values:
+              values: ["PÚBLICO", "PRIVADO", "SEM FINS LUCRATIVOS", "NÃO INFORMADO"]
+      - name: service_group
+        description: Agrupamento derivado da descrição oficial do tipo de unidade do CNES.
+        tests:
+          - accepted_values:
+              values:
+                - "HOSPITALAR"
+                - "URGÊNCIA"
+                - "DIAGNÓSTICO E TERAPIA"
+                - "AMBULATORIAL"
+                - "APOIO E GESTÃO"
+                - "OUTROS"
+                - "NÃO INFORMADO"
+
+  - name: fct_weather_daily
+    columns:
+      - name: region_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region_id
+      - name: observed_on
+        description: >
+          Unicidade do grão (região × dia) é validada em
+          `tests/assert_weather_grain_is_unique.sql`.
+        tests: [not_null]
+
+  - name: mart_region_overview
+    description: Uma linha por RA com todos os indicadores de topo. É o que o mapa e a página de região consomem.
+    columns:
+      - name: region_id
+        tests: [unique, not_null]
+
+  - name: mart_data_coverage
+    description: Cobertura real por região e domínio. Existe para que lacuna apareça como lacuna, não como zero.
+    columns:
+      - name: region_id
+        tests: [unique, not_null]
+
+  - name: mart_insights
+    description: Achados calculados, com período, método, fonte e ressalva. Nenhum texto é redigido à mão.
+    columns:
+      - name: insight_id
+        tests: [unique, not_null]
+      - name: domain
+        tests:
+          - accepted_values:
+              values: ["population", "security", "health", "weather", "quality"]
+      - name: method
+        description: Como o número foi calculado. Obrigatório — insight sem método não é publicado.
+        tests: [not_null]
+      - name: source_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_source')
+              field: source_id
+
+  - name: mart_security_region_monthly
+    columns:
+      - name: region_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region_id
+
+  - name: mart_weather_region_monthly
+    columns:
+      - name: region_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_region')
+              field: region_id
+
+  - name: mart_pipeline_status
+    columns:
+      - name: source_key
+        tests: [unique, not_null]
+      - name: status
+        tests:
+          - accepted_values:
+              values: ["RUNNING", "SUCCESS", "FAILED"]

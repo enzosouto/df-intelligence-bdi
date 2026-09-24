@@ -1,0 +1,19 @@
+# Perfil do dbt. Lê tudo do ambiente — nenhuma credencial vive aqui.
+#
+# As variáveis DBT_* são derivadas de DATABASE_URL por `scripts/run_pipeline.sh`,
+# para que exista UMA fonte de verdade de conexão no projeto. Os defaults abaixo
+# correspondem ao `docker compose up -d postgres` desta receita.
+df_intelligence:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('DBT_POSTGRES_PORT', '55432') | int }}"
+      user: "{{ env_var('DBT_POSTGRES_USER', 'df') }}"
+      password: "{{ env_var('DBT_POSTGRES_PASSWORD', 'df_local_password_change_me') }}"
+      dbname: "{{ env_var('DBT_POSTGRES_DB', 'df_intelligence') }}"
+      schema: staging
+      threads: 4
+      keepalives_idle: 0
+      connect_timeout: 30

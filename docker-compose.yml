@@ -1,0 +1,81 @@
+name: df-intelligence
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dfi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-df}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-df_local_password_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-df_intelligence}
+    ports:
+      - "${POSTGRES_HOST_PORT:-55432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-df} -d ${POSTGRES_DB:-df_intelligence}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: dfi-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-df}:${POSTGRES_PASSWORD:-df_local_password_change_me}@postgres:5432/${POSTGRES_DB:-df_intelligence}
+      API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:5173,http://localhost:4173}
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health-check').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Vazio de propósito: o nginx do próprio container faz proxy de /api
+        # para a API, então o navegador fala com uma origem só.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    container_name: dfi-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_HOST_PORT:-5173}:80"
+    depends_on:
+      - api
+
+  # One-shot: ingestão + dbt. Não sobe com `up -d`; roda sob demanda.
+  #   docker compose run --rm pipeline
+  pipeline:
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
+    container_name: dfi-pipeline
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-df}:${POSTGRES_PASSWORD:-df_local_password_change_me}@postgres:5432/${POSTGRES_DB:-df_intelligence}
+      WEATHER_START_DATE: ${WEATHER_START_DATE:-2018-01-01}
+      SECURITY_START_YEAR: ${SECURITY_START_YEAR:-2014}
+      HTTP_USER_AGENT: ${HTTP_USER_AGENT:-DFIntelligence/1.0}
+      HTTP_THROTTLE_SECONDS: ${HTTP_THROTTLE_SECONDS:-0.4}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["bash", "/app/scripts/run_pipeline.sh"]
+
+volumes:
+  pgdata:

@@ -1,0 +1,174 @@
+name: pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # A SSP-DF publica mensalmente; o CNES atualiza mensalmente.
+    # Todo dia 5, 06:00 UTC (03:00 em Brasília).
+    - cron: "0 6 5 * *"
+  workflow_dispatch:
+    inputs:
+      run_ingestion:
+        description: "Executar a ingestão completa (acessa as fontes públicas)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  POSTGRES_USER: df
+  POSTGRES_PASSWORD: df_ci_password
+  POSTGRES_DB: df_intelligence
+  DATABASE_URL: postgresql://df:df_ci_password@localhost:5432/df_intelligence
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Testes que não dependem de rede nem de banco: rodam em todo push e PR.
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    name: Testes unitários
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: pytest
+        run: pytest tests/test_security_parser.py tests/test_ingestion_units.py
+
+  frontend:
+    name: Frontend (typecheck + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run build
+        working-directory: frontend
+
+  # ---------------------------------------------------------------------------
+  # As fontes públicas ainda existem e respondem como documentado?
+  # ---------------------------------------------------------------------------
+  validate-sources:
+    name: Validar fontes públicas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Testar acesso a cada fonte
+        run: python -m ingestion.validate_sources
+
+  # ---------------------------------------------------------------------------
+  # Pipeline completo contra um Postgres efêmero.
+  #
+  # A ingestão real (~10 min, ~500 requisições a portais públicos) só roda no
+  # agendamento mensal ou sob demanda — não em cada PR, para não martelar os
+  # servidores do GDF.
+  # ---------------------------------------------------------------------------
+  pipeline:
+    name: Ingestão + dbt + testes de integração
+    runs-on: ubuntu-latest
+    needs: [unit-tests, validate-sources]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: df
+          POSTGRES_PASSWORD: df_ci_password
+          POSTGRES_DB: df_intelligence
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Ingestão (fontes → raw)
+        run: python -m ingestion
+
+      - name: dbt seed + build (modelos e testes de qualidade)
+        working-directory: dbt
+        env:
+          DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+          DBT_POSTGRES_HOST: localhost
+          DBT_POSTGRES_PORT: "5432"
+          DBT_POSTGRES_USER: df
+          DBT_POSTGRES_PASSWORD: df_ci_password
+          DBT_POSTGRES_DB: df_intelligence
+        run: |
+          dbt seed --no-version-check
+          dbt build --no-version-check
+
+      - name: Testes de integração da API
+        run: pip install fastapi httpx uvicorn && pytest tests/test_api_integration.py
+
+      - name: Relatório do pipeline
+        if: always()
+        run: |
+          psql "$DATABASE_URL" -c "
+            select source_key, status, rows_written, requests_made, error_message
+            from meta.ingestion_run
+            where started_at > now() - interval '2 hours'
+            order by started_at;"
+          psql "$DATABASE_URL" -c "
+            select check_name, severity, passed, left(observed, 80) as observed
+            from meta.data_quality_check
+            where checked_at > now() - interval '2 hours' and not passed
+            order by severity;"
+
+      - name: Guardar artefatos do dbt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-target
+          path: dbt/target/
+          retention-days: 14
+
+  docker:
+    name: Imagens Docker
+    runs-on: ubuntu-latest
+    needs: [unit-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir API e frontend
+        run: |
+          docker build -f api/Dockerfile -t dfi-api .
+          docker build -f frontend/Dockerfile -t dfi-frontend frontend

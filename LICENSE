@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2026 DF Intelligence
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Nota sobre os dados
+-------------------
+
+Esta licença cobre o CÓDIGO deste repositório.
+
+Os dados consumidos pelo projeto pertencem às suas fontes originais e seguem
+as licenças e os termos de uso delas:
+
+* IBGE — dados abertos, uso livre com citação da fonte.
+* IBRAM / ONDA-DF (GDF) — dados abertos do Distrito Federal.
+* SSP-DF — estatística criminal oficial; a divulgação é competência da
+  Subsecretaria de Gestão da Informação.
+* CNES / Ministério da Saúde — dados abertos federais.
+* Open-Meteo — dados sob CC-BY 4.0, uso não comercial livre; baseado na
+  reanálise ERA5 do ECMWF.
+
+Ao reutilizar números deste projeto, cite a fonte original — ela está em
+`/api/sources` e em `docs/data_sources.md`.
+
+Este é um projeto independente, sem vínculo com o Governo do Distrito Federal.

@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    /* Halo sutil atrás do conteúdo — dá profundidade sem virar gradiente barato. */
+    background-image:
+      radial-gradient(60rem 40rem at 20% -10%, rgba(94, 230, 197, 0.07), transparent 60%),
+      radial-gradient(48rem 36rem at 92% 0%, rgba(169, 139, 255, 0.06), transparent 62%);
+    background-attachment: fixed;
+  }
+
+  /* Números em tabela precisam de largura fixa por dígito, senão "dançam". */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  ::selection {
+    background: rgba(94, 230, 197, 0.25);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0b0d10;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #232833;
+    border-radius: 999px;
+    border: 2px solid #0b0d10;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #303747;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface/80 shadow-card backdrop-blur-sm;
+  }
+
+  .card-pad {
+    @apply p-5 sm:p-6;
+  }
+
+  .label {
+    @apply text-[11px] font-medium uppercase tracking-[0.14em] text-faint;
+  }
+
+  .metric {
+    @apply font-display text-3xl font-semibold tracking-tight tnum sm:text-4xl;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-elevated px-2.5 py-1
+           text-[11px] font-medium text-muted;
+  }
+
+  .link-underline {
+    @apply underline decoration-line underline-offset-4 transition-colors hover:decoration-population;
+  }
+
+  .skeleton {
+    @apply rounded-lg bg-elevated;
+    background-image: linear-gradient(90deg, #15181e 0%, #1d222a 40%, #15181e 80%);
+    background-size: 500px 100%;
+    @apply animate-shimmer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

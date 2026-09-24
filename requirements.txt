@@ -1,0 +1,14 @@
+# Ingestão + transformação
+requests==2.32.3
+pandas==2.2.3
+openpyxl==3.1.5
+xlrd==2.0.1
+psycopg2-binary==2.9.10
+shapely==2.0.6
+pyproj==3.7.0
+python-dotenv==1.0.1
+dbt-core==1.9.2
+dbt-postgres==1.9.0
+
+# Testes
+pytest==8.3.4

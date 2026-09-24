@@ -1,0 +1,20 @@
+nature_source,nature_key,nature_name,category_code,category_name,metric_type,is_violent
+HOMICÍDIO,HOMICIDIO,Homicídio,CVLI,Crimes Violentos Letais Intencionais,CRIME,true
+LATROCÍNIO,LATROCINIO,Latrocínio,CVLI,Crimes Violentos Letais Intencionais,CRIME,true
+LESÃO CORPORAL SEG. DE MORTE,LESAO_CORPORAL_SEGUIDA_DE_MORTE,Lesão corporal seguida de morte,CVLI,Crimes Violentos Letais Intencionais,CRIME,true
+ROUBO A TRANSEUNTE,ROUBO_A_TRANSEUNTE,Roubo a transeunte,CCP,Crimes Contra o Patrimônio,CRIME,true
+ROUBO DE VEÍCULO,ROUBO_DE_VEICULO,Roubo de veículo,CCP,Crimes Contra o Patrimônio,CRIME,true
+ROUBO EM COLETIVO,ROUBO_EM_COLETIVO,Roubo em coletivo,CCP,Crimes Contra o Patrimônio,CRIME,true
+ROUBO EM COMÉRCIO,ROUBO_EM_COMERCIO,Roubo em comércio,CCP,Crimes Contra o Patrimônio,CRIME,true
+ROUBO EM RESIDÊNCIA,ROUBO_EM_RESIDENCIA,Roubo em residência,CCP,Crimes Contra o Patrimônio,CRIME,true
+FURTO EM VEÍCULO,FURTO_EM_VEICULO,Furto em veículo,CCP,Crimes Contra o Patrimônio,CRIME,false
+FURTO A TRANSEUNTE,FURTO_A_TRANSEUNTE,Furto a transeunte,OUTROS,Outros Crimes,CRIME,false
+ESTUPRO,ESTUPRO,Estupro,OUTROS,Outros Crimes,CRIME,true
+ESTUPRO DE VULNERÁVEL,ESTUPRO_DE_VULNERAVEL,Estupro de vulnerável,OUTROS,Outros Crimes,CRIME,true
+TENTATIVA DE HOMICÍDIO,TENTATIVA_DE_HOMICIDIO,Tentativa de homicídio,OUTROS,Outros Crimes,CRIME,true
+TENTATIVA DE LATROCÍNIO,TENTATIVA_DE_LATROCINIO,Tentativa de latrocínio,OUTROS,Outros Crimes,CRIME,true
+TENTATIVA DE LATROCINIO,TENTATIVA_DE_LATROCINIO,Tentativa de latrocínio,OUTROS,Outros Crimes,CRIME,true
+LOCALIZAÇÃO DE VEICULO FURTADO OU ROUBADO,LOCALIZACAO_DE_VEICULO,Localização de veículo furtado ou roubado,PRODUTIVIDADE,Produtividade Policial,POLICE_ACTIVITY,false
+POSSE/PORTE DE ARMA,POSSE_PORTE_DE_ARMA,Posse/porte de arma,PRODUTIVIDADE,Produtividade Policial,POLICE_ACTIVITY,false
+TRÁFICO DE DROGAS,TRAFICO_DE_DROGAS,Tráfico de drogas,PRODUTIVIDADE,Produtividade Policial,POLICE_ACTIVITY,false
+USO E PORTE DE DROGAS,USO_E_PORTE_DE_DROGAS,Uso e porte de drogas,PRODUTIVIDADE,Produtividade Policial,POLICE_ACTIVITY,false

@@ -10,6 +10,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   `mart_education_yearly`, `mart_education_coverage`, endpoints
   `/api/education` e `/api/education/coverage`, seção na página de região,
   três insights e a fonte `SEEDF_EDUCACENSO` no catálogo.
+- Validado no pipeline real (GitHub Actions, ingestão das 6 fontes): 1.594
+  escolas, 1.471 com RA pela coordenada, 121 pela declaração confiável, 2 sem
+  região; 128 testes dbt e 20 de integração passando.
 - 22 testes de parser (`tests/test_education_parser.py`), 5 testes singulares
   no dbt e 4 testes de integração, cada um codificando um achado dos arquivos
   reais (ver `docs/data_quality.md`, 2.13–2.19).
@@ -29,6 +32,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 - **Ensino médio = médio + integrado.** Sozinho, o médio "cai" 11% em 2025
   (100.541 → 89.098) por reclassificação; somado ao integrado fica estável
   (104.469 → 105.015).
+- **Rótulo declarado só vale se as coordenadas o confirmam.** Em 2025 as
+  escolas do Arapoanga vêm com código 35 **e** nome "AGUA QUENTE" — coerentes
+  entre si, errados os dois. Cada par (ano, código, nome) precisa que a maioria
+  das suas escolas geolocalizadas caia na RA indicada.
 - **Microdados do Inep rejeitados:** cadeia TLS incompleta a partir do runner
   do GitHub e ausência de RA.
 

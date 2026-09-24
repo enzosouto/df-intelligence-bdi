@@ -220,7 +220,7 @@ vêm com código 35 **e** nome "AGUA QUENTE", errados mas coerentes entre si; no
 pipeline real, as 7 com coordenada estão todas na RA XXXIV (acerto 0%), e o
 rótulo é descartado. Sem rótulo confiável, a escola fica `UNRESOLVED`.
 
-Das 1.471 escolas com coordenada e declaração, 106 (7%) discordam — quase
+Das 1.465 escolas com coordenada e declaração confiável, 103 (7%) discordam — quase
 todas por **declaração defasada** em RAs desmembradas: Águas Claras →
 Arniqueira (13), Sobradinho → Sobradinho II (9), Planaltina → Arapoanga (8),
 Ceilândia → Sol Nascente (5). A coordenada reflete o território atual. Teste de

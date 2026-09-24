@@ -4,6 +4,35 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Adicionado
+- **Domínio de educação** (Educacenso via SEEDF, `data.se.df.gov.br`, todas as
+  redes, 2014–2025): `ingestion/education.py`, `fct_education_enrollment`,
+  `mart_education_yearly`, `mart_education_coverage`, endpoints
+  `/api/education` e `/api/education/coverage`, seção na página de região,
+  três insights e a fonte `SEEDF_EDUCACENSO` no catálogo.
+- 22 testes de parser (`tests/test_education_parser.py`), 5 testes singulares
+  no dbt e 4 testes de integração, cada um codificando um achado dos arquivos
+  reais (ver `docs/data_quality.md`, 2.13–2.19).
+
+### Decisões de fonte (educação)
+- **RA pela coordenada, não pela declaração.** Os códigos 34/35 da SEEDF estão
+  invertidos em relação à numeração oficial em todos os anos, e o nome veio
+  trocado em 2025. As escolas do Arapoanga seriam contadas em Água Quente.
+- **2023 não publicado.** O arquivo de matrículas cobre 600 das 1.264 escolas
+  do cadastro (385.801 matrículas contra ~620 mil nos anos vizinhos). Sem
+  tratamento: "queda de 38%".
+- **2024 sem total.** A fonte não publica a coluna; a soma das etapas só fecha
+  exatamente em 2023 e 2025, então não a substitui.
+- **Ensino médio = médio + integrado.** Sozinho, o médio "cai" 11% em 2025
+  (100.541 → 89.098) por reclassificação; somado ao integrado fica estável
+  (104.469 → 105.015).
+- **Microdados do Inep rejeitados:** cadeia TLS incompleta a partir do runner
+  do GitHub e ausência de RA.
+
+### Alterado
+- `load_region_index` passou de `ingestion/health.py` para
+  `ingestion/common.py`: saúde e educação usam o mesmo índice espacial.
+
 ### Corrigido
 - **Imagem do pipeline** (`ingestion/Dockerfile`): removido o `apt-get install
   bash postgresql-client`. Nenhum script usa `psql` (a conferência final é via

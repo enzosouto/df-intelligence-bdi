@@ -152,6 +152,7 @@ onMounted(load)
                 <th class="px-5 py-3 font-medium text-faint">Segurança</th>
                 <th class="px-5 py-3 font-medium text-faint">Anos ausentes</th>
                 <th class="px-5 py-3 font-medium text-faint">Saúde</th>
+                <th class="px-5 py-3 font-medium text-faint" title="Escolas no último censo · anos com matrícula completa">Educação</th>
                 <th class="px-5 py-3 font-medium text-faint">Clima</th>
               </tr>
             </thead>
@@ -181,6 +182,10 @@ onMounted(load)
                   {{ item.security_missing_years.join(', ') || '—' }}
                 </td>
                 <td class="px-5 py-2.5 tnum text-muted">{{ num(item.health_facilities) }}</td>
+                <td class="px-5 py-2.5 tnum text-muted">
+                  {{ num(item.education_schools) }}
+                  <span class="text-faint">· {{ item.education_years_with_enrollment }} anos</span>
+                </td>
                 <td class="px-5 py-2.5 tnum text-muted">{{ num(item.weather_days) }} dias</td>
               </tr>
             </tbody>

@@ -3,7 +3,16 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api'
 import { dec, monthLabel, num, pct, temperature } from '@/format'
-import type { Coverage, HealthSummary, RegionIndicators, SecurityPoint, WeatherPoint } from '@/types'
+import type {
+  BikewayYear,
+  Coverage,
+  EducationYear,
+  HealthSummary,
+  MobilityRegion,
+  RegionIndicators,
+  SecurityPoint,
+  WeatherPoint,
+} from '@/types'
 import type { Series } from '@/components/chart'
 import LineChart from '@/components/LineChart.vue'
 import LoadState from '@/components/LoadState.vue'
@@ -18,6 +27,9 @@ const region = ref<RegionIndicators | null>(null)
 const security = ref<SecurityPoint[]>([])
 const weather = ref<WeatherPoint[]>([])
 const health = ref<HealthSummary | null>(null)
+const education = ref<EducationYear[]>([])
+const mobility = ref<MobilityRegion | null>(null)
+const bikeways = ref<BikewayYear[]>([])
 const coverage = ref<Coverage | null>(null)
 const parentName = ref<string | null>(null)
 
@@ -43,6 +55,41 @@ const securityChart = computed<Series[]>(() => {
     }
   })
 })
+
+// Etapas por ano. Ano incompleto chega com null e vira quebra na linha —
+// em 8 dos 12 anos, o arquivo de matrículas da SEEDF omite escolas ativas do cadastro.
+const educationChart = computed<Series[]>(() => {
+  const stages = [
+    { key: 'early_childhood', label: 'Educação infantil', color: '#C3E86B' },
+    { key: 'elementary', label: 'Fundamental', color: '#4CC2FF' },
+    { key: 'high_school_all', label: 'Médio (com integrado)', color: '#A98BFF' },
+    { key: 'youth_adult', label: 'EJA', color: '#F5A524' },
+  ] as const
+  return stages.map((stage) => ({
+    key: stage.key,
+    label: stage.label,
+    color: stage.color,
+    points: education.value.map((year) => ({ x: String(year.census_year), y: year[stage.key] })),
+  }))
+})
+
+const educationGaps = computed(() =>
+  education.value.filter((year) => !year.is_year_complete).map((year) => year.census_year),
+)
+
+// Acumulado dos trechos que existem hoje, por ano de construção. O rótulo do
+// gráfico diz isso — não é a malha histórica.
+const bikewayChart = computed<Series[]>(() => [
+  {
+    key: 'bikeway',
+    label: 'Km acumulados (malha atual)',
+    color: '#FF8A4C',
+    points: bikeways.value.map((year) => ({
+      x: String(year.construction_year),
+      y: year.current_network_km_cumulative,
+    })),
+  },
+])
 
 const weatherChart = computed<Series[]>(() => [
   {
@@ -85,17 +132,24 @@ async function load() {
   error.value = null
   parentName.value = null
   try {
-    const [indicators, securityData, weatherData, healthData, coverageData] = await Promise.all([
+    const [indicators, securityData, weatherData, healthData, coverageData, educationData, mobilityData, bikewayData] =
+      await Promise.all([
       api.regionIndicators(props.regionId),
       api.securitySummary({ region_id: props.regionId, year_from: 2018 }),
       api.weather({ region_id: props.regionId, year_from: 2022, limit: 600 }),
       api.health({ region_id: props.regionId }),
       api.coverage(),
+      api.education({ region_id: props.regionId }),
+      api.mobility({ region_id: props.regionId }),
+      api.bikewayYearly({ region_id: props.regionId }),
     ])
     region.value = indicators
     security.value = securityData
     weather.value = weatherData
     health.value = healthData[0] ?? null
+    education.value = educationData
+    mobility.value = mobilityData[0] ?? null
+    bikeways.value = bikewayData
     coverage.value = coverageData.find((item) => item.region_id === props.regionId) ?? null
 
     if (indicators.inferred_parent_region_id) {
@@ -135,7 +189,7 @@ watch(() => props.regionId, load)
         </header>
 
         <!-- Indicadores principais -->
-        <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div class="card card-pad">
             <p class="label" style="color: #5ee6c5">População</p>
             <p class="metric mt-2">{{ num(region.population_2022) }}</p>
@@ -162,6 +216,21 @@ watch(() => props.regionId, load)
             <p class="metric mt-2">{{ num(region.health_facilities) }}</p>
             <p class="mt-2 text-xs text-faint">
               estabelecimentos · {{ num(region.health_facilities_sus_ambulatory) }} com atendimento ambulatorial SUS
+            </p>
+          </div>
+          <div class="card card-pad">
+            <p class="label" style="color: #c3e86b">Educação</p>
+            <p class="metric mt-2">{{ num(region.education_schools) }}</p>
+            <p class="mt-2 text-xs text-faint">
+              escolas · {{ num(region.education_enrollment) }} matrículas
+              <template v-if="region.education_reference_year">em {{ region.education_reference_year }}</template>
+            </p>
+          </div>
+          <div class="card card-pad">
+            <p class="label" style="color: #ff8a4c">Mobilidade</p>
+            <p class="metric mt-2">{{ dec(region.bikeway_km, 1) }}<span class="text-base text-muted"> km</span></p>
+            <p class="mt-2 text-xs text-faint">
+              de malha cicloviária · {{ num(region.metro_stations) }} estações de metrô
             </p>
           </div>
           <div class="card card-pad">
@@ -294,6 +363,92 @@ watch(() => props.regionId, load)
             produção. Dos estabelecimentos desta RA,
             {{ num(health.assigned_by_neighborhood) }} foram localizados pelo bairro informado por
             falta de coordenada no cadastro.
+          </DataNotice>
+        </section>
+
+        <!-- Educação -->
+        <section v-if="education.length" class="card card-pad">
+          <h2 class="font-display text-lg font-semibold">Matrículas por etapa</h2>
+          <p class="mb-5 mt-1 text-xs text-faint">
+            Censo Escolar · todas as redes · escolas localizadas nesta RA
+          </p>
+          <LineChart :series="educationChart" :area="false" :format-value="(value) => num(value)" />
+
+          <dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+            <div v-for="item in [
+              { label: 'Escolas', value: region.education_schools, title: 'Unidades escolares de todas as redes na RA' },
+              { label: 'Escolas públicas', value: region.education_schools_public, title: 'Rede distrital e federal' },
+              { label: 'Matrículas', value: region.education_enrollment, title: 'Total publicado pela SEEDF no ano de referência' },
+              { label: 'Na rede pública', value: region.education_enrollment_public_share_pct, title: 'Participação da rede pública nas matrículas', suffix: '%' },
+            ]" :key="item.label">
+              <dt class="label" :title="item.title">{{ item.label }}</dt>
+              <dd class="mt-1 font-display text-xl font-semibold tnum">
+                {{ item.suffix ? `${dec(item.value, 1)}${item.value === null ? '' : item.suffix}` : num(item.value) }}
+              </dd>
+            </div>
+          </dl>
+
+          <DataNotice class="mt-5">
+            Matrícula é contada onde a escola fica, não onde o aluno mora — por isso não há taxa
+            por habitante. A região de cada escola vem da coordenada, não do código declarado pela
+            SEEDF, que está invertido entre Arapoanga e Água Quente.
+          </DataNotice>
+          <DataNotice v-if="educationGaps.length" tone="warn" class="mt-3">
+            {{ educationGaps.join(', ') }}: o arquivo de matrículas publicado não cobre as escolas
+            do cadastro. O ano aparece como lacuna na linha, não como queda.
+          </DataNotice>
+        </section>
+
+        <!-- Mobilidade -->
+        <section v-if="mobility" class="card card-pad">
+          <h2 class="font-display text-lg font-semibold">Mobilidade</h2>
+          <p class="mt-1 text-xs text-faint">
+            Malha cicloviária, metrô e terminais · IDE-DF · trechos recortados pela divisa da RA
+          </p>
+
+          <dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+            <div v-for="item in [
+              { label: 'Malha cicloviária', value: `${dec(mobility.bikeway_km, 1)} km`, title: 'Ciclovia, ciclofaixa, calçada compartilhada e outros' },
+              { label: 'Por 10 mil hab.', value: mobility.bikeway_km_per_10k === null ? '—' : `${dec(mobility.bikeway_km_per_10k, 1)} km`, title: 'Censo 2022' },
+              { label: 'Estações de metrô', value: num(mobility.metro_stations), title: 'Em operação' },
+              { label: 'Terminais de ônibus', value: num(mobility.bus_terminals), title: 'Ativos' },
+            ]" :key="item.label">
+              <dt class="label" :title="item.title">{{ item.label }}</dt>
+              <dd class="mt-1 font-display text-xl font-semibold tnum">{{ item.value }}</dd>
+            </div>
+          </dl>
+
+          <div v-if="mobility.bikeway_km > 0" class="mt-6">
+            <p class="label mb-2">Tipo de infraestrutura</p>
+            <div class="flex h-2.5 overflow-hidden rounded-full bg-elevated">
+              <div
+                v-for="part in [
+                  { key: 'seg', value: mobility.bikeway_km_segregated, color: '#FF8A4C' },
+                  { key: 'paint', value: mobility.bikeway_km_painted, color: '#FFB38A' },
+                  { key: 'shared', value: mobility.bikeway_km_shared, color: '#98A2B3' },
+                  { key: 'other', value: mobility.bikeway_km_other, color: '#5D6675' },
+                ]"
+                :key="part.key"
+                :style="{ width: `${(100 * part.value) / mobility.bikeway_km}%`, background: part.color }"
+              />
+            </div>
+            <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+              <span><span class="inline-block h-2 w-2 rounded-full" style="background: #ff8a4c" /> Ciclovia {{ dec(mobility.bikeway_km_segregated, 1) }} km</span>
+              <span><span class="inline-block h-2 w-2 rounded-full" style="background: #ffb38a" /> Ciclofaixa {{ dec(mobility.bikeway_km_painted, 1) }} km</span>
+              <span><span class="inline-block h-2 w-2 rounded-full" style="background: #98a2b3" /> Calçada compartilhada {{ dec(mobility.bikeway_km_shared, 1) }} km</span>
+              <span><span class="inline-block h-2 w-2 rounded-full" style="background: #5d6675" /> Outros {{ dec(mobility.bikeway_km_other, 1) }} km</span>
+            </p>
+          </div>
+
+          <div v-if="mobility.bikeway_km > 0" class="mt-6">
+            <p class="label mb-3">Malha atual por ano de construção (acumulado)</p>
+            <LineChart :series="bikewayChart" :format-value="(value) => `${dec(value, 0)} km`" />
+          </div>
+
+          <DataNotice class="mt-5">
+            A série mostra os trechos que existem hoje, pelo ano em que foram construídos — não a
+            malha de cada ano, porque trechos removidos não aparecem na fonte. Estação na RA é
+            presença, não acesso a pé para todos os moradores.
           </DataNotice>
         </section>
 

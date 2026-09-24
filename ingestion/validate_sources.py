@@ -104,6 +104,30 @@ def check_open_meteo(session) -> str:
     return f"{len(daily['time'])} dias, última máx = {daily['temperature_2m_max'][-1]}°C"
 
 
+def check_seedf(session) -> str:
+    counts = []
+    for dataset in (
+        "relacao-de-unidades-escolares-abrangendo-todas-as-redes-de-ensino-do-distrito-federal",
+        "quantidade-de-matriculas-das-modalidades-de-ensino-abrangendo-todas-as-redes-de-ensino-do-df",
+    ):
+        package = get_json(session, f"https://data.se.df.gov.br/api/3/action/package_show?id={dataset}")
+        csvs = [r for r in package["result"]["resources"] if (r.get("format") or "").upper() == "CSV"]
+        assert len(csvs) >= 10, f"{dataset}: apenas {len(csvs)} CSVs"
+        counts.append(len(csvs))
+    return f"{counts[0]} CSVs de escolas, {counts[1]} de matrículas"
+
+
+def check_idedf(session) -> str:
+    base = "https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer"
+    counts = {}
+    for layer, field in ((218, "cvia_km"), (140, "mto_situacao"), (127, "let_tipo")):
+        meta = get_json(session, f"{base}/{layer}?f=json")
+        assert field in {f["name"] for f in meta["fields"]}, f"camada {layer}: campo {field} sumiu"
+        counts[layer] = get_json(session, f"{base}/{layer}/query?where=1%3D1&returnCountOnly=true&f=json")["count"]
+    assert counts[218] > 1000, f"apenas {counts[218]} trechos cicloviários"
+    return f"{counts[218]} trechos cicloviários, {counts[140]} estações de metrô, {counts[127]} estações/terminais"
+
+
 CHECKS = {
     "Regiões Administrativas (IBRAM/ONDA-DF)": check_regions,
     "Subdistritos (IBGE Localidades)": check_ibge_subdistricts,
@@ -112,6 +136,8 @@ CHECKS = {
     "Balanço Criminal (SSP-DF)": check_ssp,
     "Estabelecimentos de saúde (CNES)": check_cnes,
     "Clima histórico (Open-Meteo/ERA5)": check_open_meteo,
+    "Escolas e matrículas (SEEDF/Educacenso)": check_seedf,
+    "Mobilidade (IDE-DF)": check_idedf,
 }
 
 

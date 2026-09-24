@@ -8,6 +8,9 @@
 
 import type {
   Coverage,
+  EducationYear,
+  BikewayYear,
+  MobilityRegion,
   HealthSummary,
   Indicator,
   Insight,
@@ -78,6 +81,10 @@ export const api = {
   securitySummary: (params?: { region_id?: string; year_from?: number }) =>
     get<SecurityPoint[]>('/api/security/summary', params),
   health: (params?: { region_id?: string }) => get<HealthSummary[]>('/api/health', params),
+  education: (params?: { region_id?: string }) => get<EducationYear[]>('/api/education', params),
+  mobility: (params?: { region_id?: string }) => get<MobilityRegion[]>('/api/mobility', params),
+  bikewayYearly: (params?: { region_id?: string }) =>
+    get<BikewayYear[]>('/api/mobility/bikeways/yearly', params),
   weatherSummary: (params?: { year_from?: number }) =>
     get<WeatherPoint[]>('/api/weather/summary', params),
   weather: (params?: { region_id?: string; year_from?: number; year_to?: number; limit?: number }) =>

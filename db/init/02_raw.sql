@@ -129,6 +129,110 @@ CREATE TABLE IF NOT EXISTS raw.weather_daily (
     PRIMARY KEY (ra_code, observed_on)
 );
 
+-- Educação: escolas e matrículas do Educacenso (SEEDF / data.se.df.gov.br) ---
+-- Cadastro de escolas: uma linha por escola × ano de censo, como a SEEDF
+-- publica. A RA "declarada" é a da SEEDF e NÃO é usada como chave direta: os
+-- códigos 34/35 vêm invertidos em relação à numeração oficial.
+CREATE TABLE IF NOT EXISTS raw.education_school (
+    census_year      integer NOT NULL,
+    school_code      bigint  NOT NULL,            -- código INEP
+    network_code     integer,                     -- 1 federal, 2 SEEDF, 3 conveniada, 4 particular, 5 pública não vinculada
+    network_name     text,
+    declared_ra_code text,
+    declared_ra_name text,
+    location_type    text,                        -- Urbana / Rural
+    school_name      text,
+    neighborhood     text,
+    latitude         double precision,
+    longitude        double precision,
+    _source_url      text NOT NULL,
+    _ingested_at     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (census_year, school_code)
+);
+
+-- Matrículas agregadas para escola × ano (o arquivo vem por idade × sexo ×
+-- cor/raça). Etapa sem valor publicado fica NULL, não zero.
+CREATE TABLE IF NOT EXISTS raw.education_enrollment (
+    census_year            integer NOT NULL,
+    school_code            bigint  NOT NULL,
+    network_code           integer,
+    declared_ra_code       text,
+    declared_ra_name       text,
+    school_name            text,
+    total_published        integer,               -- 2024 não publica total
+    daycare                integer,
+    preschool              integer,
+    elementary             integer,
+    high_school            integer,
+    integrated_high_school integer,
+    professional           integer,
+    youth_adult            integer,
+    special_exclusive      integer,
+    special_total          integer,
+    source_rows            integer NOT NULL,
+    _source_url            text NOT NULL,
+    _ingested_at           timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (census_year, school_code)
+);
+
+-- Uma localização por escola (código INEP), válida para todos os anos: a
+-- coordenada mais recente e válida, com a RA oficial por point-in-polygon.
+CREATE TABLE IF NOT EXISTS raw.education_school_location (
+    school_code     bigint PRIMARY KEY,
+    latitude        double precision,
+    longitude       double precision,
+    coordinate_year integer,
+    ra_code         text,
+    geocode_quality text NOT NULL
+        CHECK (geocode_quality IN ('OK', 'MISSING', 'OUTSIDE_DF')),
+    _source_url     text NOT NULL,
+    _ingested_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- Mobilidade: malha cicloviária, metrô e terminais (IDE-DF) -----------------
+-- Um trecho cicloviário como a IDE-DF publica. `declared_*` são os valores da
+-- fonte; o comprimento por RA NÃO sai daqui, e sim de mobility_bikeway_piece.
+CREATE TABLE IF NOT EXISTS raw.mobility_bikeway_segment (
+    segment_id            bigint PRIMARY KEY,         -- objectid da camada 218
+    declared_ra_name      text,
+    declared_km           double precision,
+    geodesic_km           double precision NOT NULL,
+    construction_year     integer,
+    construction_year_raw text,
+    typology              text,                        -- CICLOVIA, CICLOFAIXA, ...
+    road_type             text,                        -- VIAS URBANAS / RODOVIA
+    segment_name          text,
+    highway_name          text,
+    _source_url           text NOT NULL,
+    _ingested_at          timestamptz NOT NULL DEFAULT now()
+);
+
+-- Recorte geodésico de cada trecho pelas RAs oficiais. Um trecho que cruza a
+-- divisa tem uma linha por RA, com o km que está dentro de cada uma.
+CREATE TABLE IF NOT EXISTS raw.mobility_bikeway_piece (
+    segment_id   bigint NOT NULL,
+    ra_code      text   NOT NULL,
+    km           double precision NOT NULL,
+    _source_url  text NOT NULL,
+    _ingested_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (segment_id, ra_code)
+);
+
+-- Estações de metrô (camada 140) e terminais de ônibus (camada 127).
+CREATE TABLE IF NOT EXISTS raw.mobility_station (
+    station_kind   text   NOT NULL CHECK (station_kind IN ('METRO', 'BUS_TERMINAL')),
+    feature_id     bigint NOT NULL,
+    station_name   text,
+    status         text,
+    station_number text,
+    latitude       double precision NOT NULL,
+    longitude      double precision NOT NULL,
+    ra_code        text,
+    _source_url    text NOT NULL,
+    _ingested_at   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (station_kind, feature_id)
+);
+
 -- Migrações aditivas -------------------------------------------------------
 -- `CREATE TABLE IF NOT EXISTS` não altera tabela já existente. Colunas novas
 -- entram aqui para que o mesmo DDL sirva tanto para banco vazio quanto para

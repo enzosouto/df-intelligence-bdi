@@ -179,3 +179,69 @@ def test_unknown_region_returns_404(client):
 def test_invalid_order_by_is_rejected(client):
     response = client.get("/api/indicators", params={"order_by": "1; drop table marts.dim_region"})
     assert response.status_code == 400
+
+
+# --------------------------------------------------------------------------- #
+# Educação — cada teste codifica um achado real dos arquivos da SEEDF
+# --------------------------------------------------------------------------- #
+def test_incomplete_enrollment_year_is_a_gap_not_a_drop(client):
+    """Os arquivos de 2015–2020, 2022 e 2023 omitem escolas ativas do cadastro
+    (2023: 600 de 1.264). Somados, fabricariam quedas. Precisam vir marcados e
+    com matrícula nula."""
+    series = client.get("/api/education").json()
+    assert series, "série de educação do DF vazia"
+    for year in series:
+        assert year["schools_total"] > 0, "o cadastro de escolas é completo em todos os anos"
+        if not year["is_year_complete"]:
+            assert year["enrollment_total"] is None
+            assert year["early_childhood"] is None
+
+
+def test_enrollment_total_is_not_invented_when_source_omits_it(client):
+    """2024 não publica coluna de total; as etapas existem, o total não."""
+    by_year = {y["census_year"]: y for y in client.get("/api/education").json()}
+    if 2024 in by_year and by_year[2024]["is_year_complete"]:
+        assert by_year[2024]["enrollment_total"] is None
+        assert by_year[2024]["elementary"] is not None
+
+
+def test_high_school_series_survives_2025_reclassification(client):
+    """Em 2025 parte do EM virou EM integrado. Médio + integrado fica estável."""
+    by_year = {y["census_year"]: y for y in client.get("/api/education").json() if y["is_year_complete"]}
+    if {2024, 2025} <= set(by_year):
+        before, after = by_year[2024]["high_school_all"], by_year[2025]["high_school_all"]
+        assert abs(after - before) / before < 0.05
+
+
+def test_education_is_counted_in_every_region(client):
+    regions = client.get("/api/indicators").json()
+    with_schools = [r for r in regions if r["education_schools"] > 0]
+    assert len(with_schools) >= 33, "quase toda RA tem escola; menos que isso indica atribuição quebrada"
+
+
+def test_enrollment_gap_insight_proves_the_artifact(client):
+    """O insight recalcula quanto da 'queda' aparente se explica por escolas
+    ausentes do arquivo. Em 2015 são ~94%: se cair muito, o cruzamento pelo
+    código INEP quebrou."""
+    insights = {i["insight_id"]: i for i in client.get("/api/insights").json()}
+    gap = insights.get("EDU_ENROLLMENT_FILE_GAP")
+    if gap:
+        assert 50 <= gap["value_numeric"] <= 110, gap["finding"]
+
+
+# --------------------------------------------------------------------------- #
+# Mobilidade
+# --------------------------------------------------------------------------- #
+def test_bikeway_km_is_clipped_not_double_counted(client):
+    """Trechos que cruzam divisa são recortados: a soma das RAs não pode passar
+    do total da série do DF."""
+    regions = client.get("/api/mobility").json()
+    assert len(regions) == EXPECTED_REGIONS
+    df_total = client.get("/api/mobility/bikeways/yearly").json()[-1]["current_network_km_cumulative"]
+    assert sum(r["bikeway_km"] for r in regions) == pytest.approx(df_total, rel=0.01)
+
+
+def test_metro_comes_from_a_single_layer(client):
+    stations = [s for s in client.get("/api/mobility/stations").json() if s["station_kind"] == "METRO"]
+    names = [s["station_name"] for s in stations]
+    assert len(names) == len(set(names)), "estação de metrô contada duas vezes"

@@ -186,6 +186,145 @@ coverage_gap as (
     from {{ ref('mart_data_coverage') }}
 ),
 
+-- ---------------------------------------------------------------------------
+-- Educação
+-- ---------------------------------------------------------------------------
+education_df as (
+    select * from {{ ref('mart_education_yearly') }}
+    where scope = 'DF' and is_year_complete and enrollment_total is not null
+),
+
+education_span as (
+    select
+        first_year.census_year        as first_year,
+        last_year.census_year         as last_year,
+        first_year.enrollment_total   as first_total,
+        last_year.enrollment_total    as last_total,
+        first_year.early_childhood    as first_early,
+        last_year.early_childhood     as last_early,
+        last_year.enrollment_public_share_pct as last_public_share
+    from (select * from education_df order by census_year asc  limit 1) as first_year
+    cross join (select * from education_df order by census_year desc limit 1) as last_year
+    where first_year.census_year < last_year.census_year
+),
+
+education_year_coverage as (
+    select
+        census_year,
+        bool_and(is_complete)                                                          as is_complete,
+        sum(schools_in_enrollment_file)::numeric / nullif(sum(schools_in_registry), 0) as coverage
+    from {{ ref('mart_education_coverage') }}
+    group by census_year
+),
+
+education_gaps as (
+    select
+        string_agg(census_year::text, ', ' order by census_year) as incomplete_years,
+        count(*)                                                 as incomplete_count,
+        (select count(*) from education_year_coverage)           as total_years,
+        min(census_year)                                         as first_gap_year,
+        max(census_year)                                         as last_gap_year
+    from education_year_coverage
+    where not is_complete
+),
+
+-- A prova do artefato: no primeiro ano incompleto logo após um ano completo,
+-- quanto da "queda" aparente é explicada por escolas que simplesmente não
+-- estão no arquivo, mas tinham matrícula no ano anterior.
+education_artifact_year as (
+    select current_year.census_year as gap_year, current_year.census_year - 1 as base_year
+    from education_year_coverage as current_year
+    inner join education_year_coverage as previous_year
+        on previous_year.census_year = current_year.census_year - 1
+    where not current_year.is_complete and previous_year.is_complete
+    order by current_year.census_year
+    limit 1
+),
+
+education_missing_schools as (
+    select registry.school_code
+    from {{ ref('stg_education_schools') }} as registry
+    cross join education_artifact_year as artifact
+    where registry.census_year = artifact.gap_year
+      and not exists (
+          select 1 from {{ ref('stg_education_enrollment') }} as enrolled
+          where enrolled.census_year = artifact.gap_year
+            and enrolled.school_code = registry.school_code
+      )
+),
+
+education_artifact as (
+    select
+        artifact.gap_year,
+        artifact.base_year,
+        (select sum(total_published) from {{ ref('fct_education_enrollment') }}
+          where census_year = artifact.base_year)                              as base_total,
+        (select sum(total_published) from {{ ref('fct_education_enrollment') }}
+          where census_year = artifact.gap_year)                               as gap_total_as_published,
+        (select count(*) from education_missing_schools)                       as missing_schools,
+        (select count(*) from {{ ref('fct_education_enrollment') }} as base
+          where base.census_year = artifact.base_year and base.total_published > 0
+            and base.school_code in (select school_code from education_missing_schools)) as missing_with_base_enrollment,
+        (select sum(base.total_published) from {{ ref('fct_education_enrollment') }} as base
+          where base.census_year = artifact.base_year
+            and base.school_code in (select school_code from education_missing_schools)) as missing_base_enrollment
+    from education_artifact_year as artifact
+),
+
+-- ---------------------------------------------------------------------------
+-- Mobilidade
+-- ---------------------------------------------------------------------------
+metro_reach as (
+    select
+        count(*) filter (where mobility.metro_stations > 0)                        as regions_with_metro,
+        count(*)                                                                   as total_regions,
+        sum(regions.population_2022) filter (where mobility.metro_stations > 0)    as population_with_metro,
+        sum(regions.population_2022)                                               as population_total,
+        sum(mobility.metro_stations)                                               as stations_operating,
+        sum(mobility.metro_stations_building)                                      as stations_building
+    from {{ ref('mart_mobility_region') }} as mobility
+    inner join {{ ref('dim_region') }}     as regions on regions.region_id = mobility.region_id
+),
+
+bikeway_windows as (
+    -- Janela de 3 anos consecutivos que concentra mais km da malha atual.
+    select
+        construction_year                                                     as window_start,
+        sum(current_network_km_built) over (
+            order by construction_year rows between current row and 2 following
+        )                                                                     as window_km,
+        count(*) over (
+            order by construction_year rows between current row and 2 following
+        )                                                                     as window_years
+    from {{ ref('mart_mobility_bikeway_yearly') }}
+    where scope = 'DF'
+),
+
+bikeway_peak as (
+    select
+        peak.window_start,
+        peak.window_start + 2                                                  as window_end,
+        peak.window_km,
+        (select max(current_network_km_cumulative) from {{ ref('mart_mobility_bikeway_yearly') }}
+          where scope = 'DF')                                                  as total_km,
+        (select min(construction_year) from {{ ref('mart_mobility_bikeway_yearly') }}) as first_year,
+        (select max(construction_year) from {{ ref('mart_mobility_bikeway_yearly') }}) as last_year
+    from bikeway_windows as peak
+    where peak.window_years = 3
+    order by peak.window_km desc
+    limit 1
+),
+
+bikeway_gap as (
+    select
+        min(overview.bikeway_km_per_10k) as min_rate,
+        max(overview.bikeway_km_per_10k) as max_rate,
+        (array_agg(overview.region_name order by overview.bikeway_km_per_10k asc))[1]  as lowest_region,
+        (array_agg(overview.region_name order by overview.bikeway_km_per_10k desc))[1] as highest_region
+    from {{ ref('mart_region_overview') }} as overview
+    where overview.bikeway_km_per_10k is not null and overview.population_2022 >= 20000
+),
+
 insights as (
 
     select
@@ -391,6 +530,143 @@ insights as (
         'OPEN_METEO_ERA5',
         'Fonte não governamental: reanálise ERA5 interpolada, não medição de estação do INMET.'
     from weather_seasonality
+
+    union all
+
+    select
+        'EDU_ENROLLMENT_TREND',
+        'education',
+        'Matrículas na educação básica do DF',
+        format(
+            'Entre %s e %s, as matrículas de escolarização no DF, somando todas as redes, passaram de %s para %s — variação de %s%%. Na educação infantil (creche e pré-escola), o movimento foi de %s para %s (%s%%).',
+            first_year, last_year,
+            {{ br_int('first_total') }}, {{ br_int('last_total') }},
+            {{ br_decimal('100.0 * (last_total - first_total) / nullif(first_total, 0)', 1) }},
+            {{ br_int('first_early') }}, {{ br_int('last_early') }},
+            {{ br_decimal('100.0 * (last_early - first_early) / nullif(first_early, 0)', 1) }}
+        ),
+        round(100.0 * (last_total - first_total) / nullif(first_total, 0), 2),
+        '%',
+        first_year,
+        last_year,
+        'Soma do total de matrículas publicado pela SEEDF para cada escola, em anos cujo arquivo de matrículas cobre ao menos 95% das escolas do cadastro em todas as redes.',
+        'SEEDF_EDUCACENSO',
+        'A variação descreve matrículas registradas, não população em idade escolar. Anos com arquivo incompleto ou sem total publicado ficam fora da comparação.'
+    from education_span
+
+    union all
+
+    select
+        'EDU_PUBLIC_SHARE',
+        'education',
+        'Peso da rede pública',
+        format(
+            'Em %s, %s%% das matrículas de escolarização do DF estavam na rede pública (distrital e federal). O restante se divide entre escolas particulares e particulares conveniadas com o GDF.',
+            last_year, {{ br_decimal('last_public_share', 1) }}
+        ),
+        last_public_share,
+        '%',
+        last_year,
+        last_year,
+        'Matrículas em escolas das redes 1 (federal), 2 (SEEDF) e 5 (pública não vinculada à SEEDF) divididas pelo total de matrículas publicado.',
+        'SEEDF_EDUCACENSO',
+        'Escolas conveniadas são privadas com vagas custeadas pelo GDF — sobretudo creches — e não entram na rede pública aqui.'
+    from education_span
+
+    union all
+
+    select
+        'MOB_METRO_REACH',
+        'mobility',
+        'Alcance territorial do metrô',
+        format(
+            'O metrô tem %s estações em operação, distribuídas em %s das %s Regiões Administrativas. Nessas regiões moravam %s pessoas no Censo 2022 — %s%% da população do DF. Outras %s estações constam como em construção.',
+            stations_operating, regions_with_metro, total_regions,
+            {{ br_int('population_with_metro') }},
+            {{ br_decimal('100.0 * population_with_metro / nullif(population_total, 0)', 1) }},
+            stations_building
+        ),
+        round(100.0 * population_with_metro / nullif(population_total, 0), 1),
+        '%',
+        2022,
+        extract(year from current_date)::int,
+        'Estações da camada "Estação de Metrô" da IDE-DF, localizadas em RA pela geometria; população residente das RAs com ao menos uma estação em operação, pelo Censo 2022.',
+        'IDEDF_MOBILIDADE',
+        'Ter estação na RA não significa acesso a pé para todos os moradores: RAs extensas podem ter estação a quilômetros de parte da população. É uma medida de presença, não de acessibilidade.'
+    from metro_reach
+
+    union all
+
+    select
+        'MOB_BIKEWAY_PEAK',
+        'mobility',
+        'Quando a malha cicloviária atual foi construída',
+        format(
+            'Dos %s km de infraestrutura cicloviária registrados hoje no DF, %s km (%s%%) foram construídos entre %s e %s.',
+            {{ br_decimal('total_km', 0) }},
+            {{ br_decimal('window_km', 0) }},
+            {{ br_decimal('100.0 * window_km / nullif(total_km, 0)', 0) }},
+            window_start, window_end
+        ),
+        round(100.0 * window_km / nullif(total_km, 0), 1),
+        '%',
+        first_year,
+        last_year,
+        'Soma do comprimento geodésico dos trechos da camada "Sistema Cicloviário" da IDE-DF por ano de construção; janela de 3 anos consecutivos com maior soma.',
+        'IDEDF_MOBILIDADE',
+        'Considera só os trechos que existem hoje: trechos removidos ou reconstruídos não aparecem na camada. Não é a série histórica da malha.'
+    from bikeway_peak
+
+    union all
+
+    select
+        'MOB_BIKEWAY_GAP',
+        'mobility',
+        'Desigualdade na oferta de infraestrutura cicloviária',
+        case
+            when min_rate = 0 then format(
+                'Entre as Regiões Administrativas com mais de 20 mil habitantes, a malha cicloviária vai de nenhum trecho registrado em %s a %s km por 10 mil habitantes em %s.',
+                lowest_region, {{ br_decimal('max_rate', 1) }}, highest_region)
+            else format(
+                'Entre as Regiões Administrativas com mais de 20 mil habitantes, a malha cicloviária varia de %s km por 10 mil habitantes em %s a %s em %s.',
+                {{ br_decimal('min_rate', 1) }}, lowest_region,
+                {{ br_decimal('max_rate', 1) }}, highest_region)
+        end,
+        max_rate,
+        'km por 10 mil hab.',
+        2022,
+        extract(year from current_date)::int,
+        'Km de ciclovia, ciclofaixa e calçada compartilhada recortados por RA, divididos pela população do Censo 2022, restrito a RAs com pelo menos 20 mil habitantes.',
+        'IDEDF_MOBILIDADE',
+        'Mede extensão instalada, não qualidade, conectividade nem uso. Trechos em rodovias contam para a RA que atravessam.'
+    from bikeway_gap
+
+    union all
+
+    select
+        'EDU_ENROLLMENT_FILE_GAP',
+        'quality',
+        'Arquivos de matrículas que omitem escolas ativas',
+        format(
+            'Em %s dos %s anos publicados pela SEEDF, o arquivo de matrículas omite escolas ativas do cadastro do mesmo ano (%s). Somados como vêm, mostrariam quedas que não aconteceram: de %s para %s, o total cairia de %s para %s. Mas %s escolas ausentes do arquivo de %s tinham %s matrículas em %s — %s%% da queda aparente. Esses anos aparecem como lacuna.',
+            gaps.incomplete_count, gaps.total_years, gaps.incomplete_years,
+            artifact.base_year, artifact.gap_year,
+            {{ br_int('artifact.base_total') }}, {{ br_int('artifact.gap_total_as_published') }},
+            {{ br_int('artifact.missing_with_base_enrollment') }}, artifact.gap_year,
+            {{ br_int('artifact.missing_base_enrollment') }}, artifact.base_year,
+            {{ br_decimal('100.0 * artifact.missing_base_enrollment / nullif(artifact.base_total - artifact.gap_total_as_published, 0)', 0) }}
+        ),
+        round(100.0 * artifact.missing_base_enrollment
+              / nullif(artifact.base_total - artifact.gap_total_as_published, 0), 1),
+        '%',
+        gaps.first_gap_year,
+        gaps.last_gap_year,
+        'Escolas do cadastro de unidades escolares ausentes do arquivo de matrículas do mesmo ano, cruzadas pelo código INEP com as matrículas que tinham no ano anterior. Ano com menos de 95% das escolas do cadastro em alguma rede não é publicado.',
+        'SEEDF_EDUCACENSO',
+        'Ausência de dado não é ausência de aluno. O número de escolas continua disponível em todos os anos, porque o cadastro está completo.'
+    from education_gaps as gaps
+    cross join education_artifact as artifact
+    where gaps.incomplete_years is not null
 
     union all
 

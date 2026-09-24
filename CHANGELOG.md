@@ -2,6 +2,74 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [Não lançado]
+
+### Adicionado
+- **Domínio de educação** (Educacenso via SEEDF, `data.se.df.gov.br`, todas as
+  redes, 2014–2025): `ingestion/education.py`, `fct_education_enrollment`,
+  `mart_education_yearly`, `mart_education_coverage`, endpoints
+  `/api/education` e `/api/education/coverage`, seção na página de região,
+  três insights e a fonte `SEEDF_EDUCACENSO` no catálogo.
+- Validado no pipeline real (GitHub Actions, ingestão das 6 fontes): 1.594
+  escolas, 1.471 com RA pela coordenada, 121 pela declaração confiável, 2 sem
+  região; 128 testes dbt e 20 de integração passando.
+- 22 testes de parser (`tests/test_education_parser.py`), 5 testes singulares
+  no dbt e 4 testes de integração, cada um codificando um achado dos arquivos
+  reais (ver `docs/data_quality.md`, 2.13–2.19).
+
+- **Domínio de mobilidade** (IDE-DF): malha cicloviária com recorte geodésico
+  por RA, estações de metrô e terminais de ônibus. `ingestion/mobility.py`,
+  `fct_mobility_bikeway`, `fct_mobility_station`, `mart_mobility_region`,
+  `mart_mobility_bikeway_yearly`, endpoints `/api/mobility`,
+  `/api/mobility/bikeways/yearly` e `/api/mobility/stations`, seção na página
+  de região e três insights. Achados em `docs/data_quality.md`, 2.20–2.22.
+  SEMOB e DETRAN rejeitados: não respondem a partir do runner do GitHub.
+  Validado no pipeline real: 2.293 trechos, 671,9 km; 27 estações de metrô em
+  operação em 6 das 35 RAs (40,7% da população); 44% da malha atual construída
+  entre 2012 e 2014; 147 testes dbt e 22 de integração passando.
+
+### Decisões de fonte (educação)
+- **RA pela coordenada, não pela declaração.** Os códigos 34/35 da SEEDF estão
+  invertidos em relação à numeração oficial em todos os anos, e o nome veio
+  trocado em 2025. As escolas do Arapoanga seriam contadas em Água Quente.
+- **Só anos completos são publicados.** Em 8 dos 12 anos o arquivo de
+  matrículas omite escolas ativas do cadastro — sobretudo particulares (15% a
+  29% delas de 2015 a 2022) e, em 2023, 664 das 1.264 escolas. Prova no
+  pipeline real: das 102 escolas ausentes do arquivo de 2015, 87 tinham 26.844
+  matrículas em 2014 — 94% da "queda" 2014→2015. Publicados: 2014, 2021,
+  2024 (sem total) e 2025.
+- **2024 sem total.** A fonte não publica a coluna; a soma das etapas só fecha
+  exatamente em 2023 e 2025, então não a substitui.
+- **Ensino médio = médio + integrado.** Sozinho, o médio "cai" 11% em 2025
+  (100.541 → 89.098) por reclassificação; somado ao integrado fica estável
+  (104.469 → 105.015).
+- **Rótulo declarado só vale se as coordenadas o confirmam.** Em 2025 as
+  escolas do Arapoanga vêm com código 35 **e** nome "AGUA QUENTE" — coerentes
+  entre si, errados os dois. Cada par (ano, código, nome) precisa que a maioria
+  das suas escolas geolocalizadas caia na RA indicada.
+- **Microdados do Inep rejeitados:** cadeia TLS incompleta a partir do runner
+  do GitHub e ausência de RA.
+
+### Alterado
+- `load_region_index` passou de `ingestion/health.py` para
+  `ingestion/common.py`: saúde e educação usam o mesmo índice espacial.
+
+### Corrigido
+- **Imagem do pipeline** (`ingestion/Dockerfile`): removido o `apt-get install
+  bash postgresql-client`. Nenhum script usa `psql` (a conferência final é via
+  `psycopg2`) e a `python:3.12-slim` já traz bash. Um passo de rede a menos
+  para quebrar o build. `docker compose run --rm pipeline` testado.
+- **`run_pipeline.sh --skip-ingestion`** exigia as 7 fontes no ar, porque a
+  validação rodava antes de checar a flag. Remodelar o que já está no banco
+  não depende de rede: agora a validação só roda quando há ingestão.
+- **CI — ingestão em todo push na `main`:** o `if:` do job contradizia o
+  comentário e o README ("roda todo dia 5"). Agora só roda no agendamento ou
+  via `workflow_dispatch` com `run_ingestion: true` (o input existia e não era
+  lido).
+- **CI — teste de integração da API** instalava `fastapi`/`uvicorn` sem versão;
+  passa a usar `api/requirements.txt`, as mesmas versões da imagem.
+- **CI — job `docker`** passa a construir também a imagem do pipeline.
+
 ## [1.0.0] — 2026-09-24
 
 Primeira versão funcional: pipeline completo de fontes públicas reais até a

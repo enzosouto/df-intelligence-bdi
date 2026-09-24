@@ -14,7 +14,7 @@ import argparse
 import logging
 import sys
 
-from . import health, population, regions, security, weather
+from . import education, health, mobility, population, regions, security, weather
 from .common import bootstrap_schema, configure_logging, connect
 
 MODULES = {
@@ -22,6 +22,8 @@ MODULES = {
     "population": population,
     "security": security,
     "health": health,
+    "education": education,
+    "mobility": mobility,
     "weather": weather,
 }
 

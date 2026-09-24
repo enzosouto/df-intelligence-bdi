@@ -64,6 +64,24 @@ weather_normals as (
 
 health as (
     select * from {{ ref('mart_health_region') }}
+),
+
+-- Último ano de censo escolar completo E com total publicado (2024 não tem).
+education_reference as (
+    select max(census_year) as census_year
+    from {{ ref('mart_education_yearly') }}
+    where scope = 'DF' and is_year_complete and enrollment_total is not null
+),
+
+mobility as (
+    select * from {{ ref('mart_mobility_region') }}
+),
+
+education as (
+    select yearly.*
+    from {{ ref('mart_education_yearly') }} as yearly
+    inner join education_reference on education_reference.census_year = yearly.census_year
+    where yearly.scope = 'RA'
 )
 
 select
@@ -109,6 +127,19 @@ select
         then round(10000.0 * coalesce(health.facilities_total, 0) / regions.population_2022, 2)
     end                                      as health_facilities_per_10k,
 
+    education_reference.census_year          as education_reference_year,
+    -- Escola é contada onde fica. Sem escola cadastrada na RA, o número é 0
+    -- de verdade (o cadastro é completo); a matrícula, não: fica NULL.
+    coalesce(education.schools_total, 0)     as education_schools,
+    coalesce(education.schools_public, 0)    as education_schools_public,
+    education.enrollment_total               as education_enrollment,
+    education.enrollment_public_share_pct    as education_enrollment_public_share_pct,
+
+    mobility.bikeway_km,
+    mobility.bikeway_km_per_10k,
+    mobility.metro_stations,
+    mobility.bus_terminals,
+
     weather_normals.temp_mean_c,
     weather_normals.temp_max_avg_c,
     weather_normals.temp_min_avg_c,
@@ -122,3 +153,6 @@ from regions
 left join security_metrics on security_metrics.region_id = regions.region_id
 left join weather_normals  on weather_normals.region_id  = regions.region_id
 left join health           on health.region_id           = regions.region_id
+left join mobility         on mobility.region_id         = regions.region_id
+cross join education_reference
+left join education        on education.region_id        = regions.region_id

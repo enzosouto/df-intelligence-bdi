@@ -17,7 +17,7 @@ quase todas as bases federais padrão (SIH, SIA, SINASC, estimativas
 populacionais) param na granularidade "DF inteiro" e **não** descem até a
 Região Administrativa.
 
-A granularidade de RA só existe em três lugares:
+A granularidade de RA só existe em quatro lugares:
 
 1. **IBGE — subdistritos.** No DF, os *subdistritos* do IBGE correspondem às
    Regiões Administrativas. São 35 no Censo 2022. Isso destrava população por
@@ -26,7 +26,10 @@ A granularidade de RA só existe em três lugares:
    criminal, de 2014 até o mês corrente.
 3. **Dados georreferenciados.** Qualquer base com latitude/longitude pode ser
    atribuída a uma RA por *join* espacial contra a malha oficial das RAs
-   (usado aqui para o CNES).
+   (usado aqui para o CNES e para as escolas).
+4. **SEEDF — Educacenso recortado para o DF.** A Secretaria de Educação
+   republica o Censo Escolar do Inep com a RA e a coordenada de cada escola,
+   para todas as redes.
 
 Essa restrição molda todo o modelo de dados do projeto e está documentada em
 [`data_quality.md`](./data_quality.md) como limitação de granularidade.
@@ -44,8 +47,13 @@ Essa restrição molda todo o modelo de dados do projeto e está documentada em
 | IBGE / SIDRA | Agregado 6579 — População residente estimada | `https://servicodados.ibge.gov.br/api/v3/agregados/6579/periodos/all/variaveis/9324?localidades=N6[5300108]` | API REST (JSON) | 2001–2026 | DF (município) | Anual | **VALIDADA** |
 | SSP-DF | Balanço Criminal — Dados por Região Administrativa | `https://www.ssp.df.gov.br/dados-por-regiao-administrativa/` | Página HTML + XLS/XLSX | 2014–2026 | RA × mês × natureza | Mensal | **VALIDADA** |
 | Ministério da Saúde / CNES | Estabelecimentos de saúde | `https://apidadosabertos.saude.gov.br/cnes/estabelecimentos?codigo_municipio=530010` | API REST (JSON) | Posição atual | Estabelecimento (lat/lon → RA) | Mensal | **VALIDADA** |
+| SEEDF / Inep | Série histórica de unidades escolares e de matrículas (Educacenso) | `https://data.se.df.gov.br/api/3/action/package_show?id=...` | API CKAN + CSV | 2014–2025 | Escola (lat/lon → RA) × ano | Anual | **VALIDADA** |
+| IDE-DF / SEDUH (GDF) | Sistema Cicloviário (218), Estação de Metrô (140), Estações e Terminais (127) | `https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer/{camada}/query` | API ArcGIS REST (GeoJSON) | Posição atual | Trecho/estação → RA | Eventual | **VALIDADA** |
 | Open-Meteo | Historical Weather API (ERA5) | `https://archive-api.open-meteo.com/v1/archive` | API REST (JSON) | 1940–hoje | Ponto (centroide da RA) × dia | Diária (D-5) | **VALIDADA** |
 | Portal de Dados Abertos do DF | Catálogo geral | `https://www.dados.df.gov.br/` | SPA Liferay 7.4 | — | — | — | **REJEITADA** |
+| Inep | Microdados do Censo Escolar | `https://download.inep.gov.br/dados_abertos/microdados_censo_escolar_{ano}.zip` | ZIP | — | — | — | **REJEITADA** |
+| SEMOB-DF | GeoServer (paradas e linhas de ônibus), portal | `https://geoserver.semob.df.gov.br/geoserver/semob/ows` | WFS | — | — | — | **REJEITADA** |
+| DETRAN-DF | Acidentes de trânsito (portal e `dados.df.gov.br`) | `https://www.detran.df.gov.br/dados-anuais/` | HTML/CSV | — | — | — | **REJEITADA** |
 | SES-DF / InfoSaúde | Dados abertos da saúde | `https://info.saude.df.gov.br/transparencia-e-prestacao-de-contas/dados-abertos/` | Painéis BI | — | — | — | **REJEITADA** |
 
 ---
@@ -193,6 +201,51 @@ Essa restrição molda todo o modelo de dados do projeto e está documentada em
 * **Sem chave de API, sem custo**, uso não comercial livre. Latência de ~5 dias
   no arquivo histórico.
 
+### 3.8 Educação — Educacenso (SEEDF / Inep)
+
+* **Portal:** `https://data.se.df.gov.br`, CKAN da Secretaria de Educação do
+  DF, com API (`/api/3/action/package_show`). Não confundir com
+  `dados.df.gov.br`, que perdeu a API (4.1).
+* **Conjuntos usados:**
+  * `relacao-de-unidades-escolares-abrangendo-todas-as-redes-de-ensino-do-distrito-federal`
+    — um CSV por ano, 2014–2025, ~1.150–1.290 escolas por ano, com rede, RA,
+    endereço e coordenada (até 2024).
+  * `quantidade-de-matriculas-das-modalidades-de-ensino-abrangendo-todas-as-redes-de-ensino-do-df`
+    — um CSV por ano (~20 MB), grão escola × idade × sexo × cor/raça
+    (~75–85 mil linhas), com matrículas por etapa.
+* **Testado:** download de todos os 24 CSVs a partir do runner do GitHub
+  Actions; cabeçalhos, pares código/nome de RA e totais conferidos ano a ano.
+* **Redes:** 1 federal, 2 SEEDF, 3 particular conveniada, 4 particular, 5
+  pública não vinculada à SEEDF.
+* **Uso:** `fct_education_enrollment` (escola × ano) e
+  `mart_education_yearly` (RA × ano e DF × ano).
+* **Limitações:** a matrícula é contada onde a escola fica, não onde o aluno
+  mora; em 8 dos 12 anos o arquivo de matrículas omite escolas ativas; 2024 não publica total;
+  os códigos de RA 34/35 vêm invertidos. Detalhes e tratamento em
+  [`data_quality.md`](./data_quality.md), seções 2.13 a 2.18.
+
+### 3.9 Mobilidade — IDE-DF (SEDUH)
+
+* **Serviço:** `Publico/IDEDF/FeatureServer`, 240 camadas. Responde em ~1 s a
+  partir do runner do GitHub. Paginação de 1.000 registros, ordenada por
+  `objectid`; geometria pedida em `outSR=4326` (a nativa é SIRGAS 2000 /
+  UTM 23S, EPSG:31983).
+* **Camadas usadas:**
+  * **218 Sistema Cicloviário** — 2.293 trechos, 671,9 km, com RA declarada,
+    km, ano de construção (2002–2023, todos preenchidos) e tipologia
+    (1.764 ciclovias, 259 ciclofaixas, 201 calçadas compartilhadas, 69 outros).
+  * **140 Estação de Metrô** — 29 estações: 27 em operação, 2 em construção
+    (Onoyama e 104 Sul).
+  * **127 Estações e Terminais** — só os 21 "TERMINAIS DFTRANS". As 17
+    "ESTAÇÃO METRÔ" repetem a camada 140; as 5 "ESTAÇÃO BRT" vêm sem nome.
+* **Uso:** `fct_mobility_bikeway` (trecho × RA, recorte geodésico),
+  `fct_mobility_station`, `mart_mobility_region`,
+  `mart_mobility_bikeway_yearly`.
+* **Limitações:** retrato do presente, sem data de atualização publicada. A
+  série por ano de construção descreve os trechos atuais, não a malha histórica.
+  Mede infraestrutura, não uso nem qualidade. Detalhes em
+  [`data_quality.md`](./data_quality.md), 2.20 a 2.22.
+
 ---
 
 ## 4. Fontes rejeitadas (e por quê)
@@ -241,6 +294,29 @@ produziria uma falsa granularidade. Open-Meteo/ERA5, apesar de não ser
 governamental brasileiro, é mais honesto aqui porque a interpolação é explícita
 e documentada. **Anotado como alternativa futura** para validação cruzada da
 série de Brasília.
+
+### 4.3.1 Inep — microdados do Censo Escolar
+
+`download.inep.gov.br` respondeu, a partir do runner do GitHub Actions, com
+`ConnectionResetError` (2023) e `CERTIFICATE_VERIFY_FAILED: unable to get local
+issuer certificate` (2024, 2025) — cadeia TLS incompleta. Desligar a
+verificação de certificado não é opção. Além disso, os microdados nacionais
+não trazem a RA. A SEEDF (3.8) republica o mesmo censo já recortado para o DF.
+
+### 4.3.2 SEMOB-DF e DETRAN-DF
+
+Testados a partir do runner do GitHub Actions (setembro de 2026):
+
+* `geoserver.semob.df.gov.br` (WFS de paradas e linhas): `ConnectTimeout` —
+  a conexão nem é aceita.
+* `www.semob.df.gov.br`, `www.detran.df.gov.br/dados-anuais/` e
+  `www.dados.df.gov.br/dataset/...` (acidentes com vítimas fatais):
+  `ReadTimeout` mesmo com 30 s de espera.
+
+O padrão (IDE-DF, SEEDF e IBRAM respondem na hora; estes nem abrem) sugere
+bloqueio de IP de fora do Brasil, mas isso não foi confirmado. Enquanto o
+pipeline roda no GitHub, essas fontes não são viáveis. Acidentes de trânsito
+por RA ficam como próximo passo para execução local.
 
 ### 4.4 Kaggle e agregadores não oficiais
 

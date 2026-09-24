@@ -66,11 +66,13 @@ done
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 
-# --- 1. As fontes ainda existem? --------------------------------------------
-step "Validando fontes"
-"${PYTHON}" -m ingestion.validate_sources
-
 if [[ "${SKIP_INGESTION}" -eq 0 ]]; then
+  # --- 1. As fontes ainda existem? ------------------------------------------
+  # Só antes de ingerir: remodelar o que já está no banco não depende de rede,
+  # e um portal do GDF fora do ar não pode travar o `dbt build`.
+  step "Validando fontes"
+  "${PYTHON}" -m ingestion.validate_sources
+
   # --- 2. Ingestão ----------------------------------------------------------
   step "Ingestão (fontes → schema raw)"
   "${PYTHON}" -m ingestion "${ONLY_MODULES[@]+"${ONLY_MODULES[@]}"}"

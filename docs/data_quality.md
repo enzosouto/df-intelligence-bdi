@@ -173,6 +173,158 @@ em células de 0,1° (22 células para 35 RAs) e cada célula é consultada uma 
 RAs na mesma célula recebem série idêntica — que é o que a fonte tem a dizer —
 e `regions_sharing_cell` declara isso na API e na interface.
 
+### 2.13 O esquema do Educacenso muda de ano para ano
+
+Nos arquivos da SEEDF (`data.se.df.gov.br`), a mesma informação troca de nome:
+`CO_RA` → `RA`, `CO_ENTIDADE` → `Código INEP`, `ESC_EF_TOTAL` (até 2019) →
+`MAT_EF_TOTAL` → `Ensino fundamental - TOTAL` (2025), `NU_LATITUDE` →
+`LATITUDE` (2019). O arquivo de 2025 ainda traz uma **linha-banner acima do
+cabeçalho** ("EXTRAÍDO DO MICRODADOS DE MATRÍCULAS PUBLICADO").
+
+**Tratamento:** toda coluna é localizada pelo nome normalizado (sem acento,
+maiúsculo, `/` como espaço), com lista de apelidos por campo. O cabeçalho é a
+primeira linha que contém a coluna de ano. O ano vem de `NU_ANO_CENSO`, nunca
+do nome do recurso no CKAN. Coluna obrigatória ausente derruba a ingestão com a
+lista do que sumiu.
+
+### 2.14 Milhar dentro de CSV separado por vírgula
+
+Em 2025, `BAS = "2,657"` para o Colégio Militar: são 2.657 matrículas, não
+2,657. Em 2014, o marcador de nulo é o texto `NUL.L`.
+
+**Tratamento:** `parse_count` aceita só inteiro puro ou milhar bem formado
+(`\d{1,3}([.,]\d{3})+`). Qualquer outra coisa (`12.5`, `1,2`) **levanta
+erro** — adivinhar entre decimal e milhar foi o que fez `12.0` virar `120` no
+parser da SSP (2.3). `NUL.L` e vazio viram `NULL`.
+
+### 2.15 Os códigos de RA 34 e 35 da SEEDF estão invertidos
+
+Pela numeração oficial, RA XXXIV é Arapoanga e RA XXXV é Água Quente. Na
+SEEDF, as mesmas escolas aparecem sempre sob o mesmo código, mas:
+
+| Escola (INEP) | Coordenada | 2023 | 2024 | 2025 |
+|---|---|---|---|---|
+| EC 01 DO ARAPOANGA (53047028) | −15,640 / −47,636 | 35 ARAPOANGA | 35 ARAPOANGA | 35 **AGUA QUENTE** |
+| EC DE AGUA QUENTE (53020154) | −15,947 / −48,228 | — | 34 AGUA QUENTE | 34 **ARAPOANGA** |
+
+O código está invertido em todos os anos; o nome passou a vir invertido em 2025.
+
+**Tratamento:** a RA de cada escola vem da **coordenada**, por
+point-in-polygon contra a malha oficial (a mesma técnica da saúde). A
+coordenada mais recente do código INEP vale para todos os anos — o arquivo de
+2025 não traz coordenada. Sem coordenada, a RA declarada só é aceita se código
+**e** nome apontam para a mesma RA **e** o rótulo é confiável — entre as
+escolas daquele (ano, código, nome) que têm coordenada, a maioria cai na RA
+indicada. A segunda condição não é redundante: em 2025 as escolas do Arapoanga
+vêm com código 35 **e** nome "AGUA QUENTE", errados mas coerentes entre si; no
+pipeline real, as 7 com coordenada estão todas na RA XXXIV (acerto 0%), e o
+rótulo é descartado. Sem rótulo confiável, a escola fica `UNRESOLVED`.
+
+Das 1.465 escolas com coordenada e declaração confiável, 103 (7%) discordam — quase
+todas por **declaração defasada** em RAs desmembradas: Águas Claras →
+Arniqueira (13), Sobradinho → Sobradinho II (9), Planaltina → Arapoanga (8),
+Ceilândia → Sol Nascente (5). A coordenada reflete o território atual. Teste de
+regressão com as duas escolas acima:
+`assert_education_ra_34_35_follow_coordinates`.
+
+Efeito colateral útil: como a escola é um ponto, a série por RA fica em
+**território constante** (malha de 2025), inclusive para anos anteriores à
+criação de Sol Nascente, Arniqueira, Arapoanga e Água Quente — o oposto da
+população por RA (2.10).
+
+### 2.16 Os arquivos de matrículas omitem escolas ativas em 8 de 12 anos
+
+Fração das escolas do cadastro presentes no arquivo de matrículas do mesmo ano
+(pipeline real, setembro de 2026):
+
+| Ano | Pública | Conveniada | Particular |
+|---|---|---|---|
+| 2014 | 100% | 100% | 100% |
+| 2015 | 98,6% | 100% | **78,6%** |
+| 2016 | 98,2% | 100% | **78,2%** |
+| 2017 | 97,6% | 100% | **76,3%** |
+| 2018 | 97,4% | 100% | **71,4%** |
+| 2019 | 98,5% | 100% | **77,6%** |
+| 2020 | 98,5% | 100% | **85,4%** |
+| 2021 | 98,8% | 100% | 98,7% |
+| 2022 | 98,5% | 100% | **79,2%** |
+| 2023 | **89,3%** | **0%** | **0%** |
+| 2024 | 100% | 100% | 100% |
+| 2025 | 100% | 100% | 100% |
+
+As escolas ausentes **não** são escolas sem aluno: no cadastro elas estão
+ativas (`ESCOLAS = 1`) e oferecem etapas. Das 102 ausentes do arquivo de 2015,
+87 tinham **26.844 matrículas em 2014**; a "queda" de 2014 para 2015 é de
+28.650 (668.542 → 639.892). Ou seja, **94% da queda aparente são escolas que
+não estão no arquivo**. Em 2022, 78 das 108 ausentes tinham 16.546 matrículas
+em 2021. Em 2023 o arquivo traz só a rede pública, e incompleta: 600 escolas,
+385.801 matrículas, creche com 177.
+
+**Tratamento:** sem lista de anos escrita à mão. `mart_education_coverage` mede
+a completude por ano e rede; abaixo de 95% em qualquer rede, as matrículas do
+ano saem nulas e a linha do gráfico quebra. Publicados: **2014, 2021, 2024 e
+2025**. O número de escolas continua publicado em todos os anos, porque o
+cadastro é completo. O insight `EDU_ENROLLMENT_FILE_GAP` recalcula a prova
+acima a cada execução.
+
+### 2.17 2024 não publica o total de matrículas
+
+O arquivo de 2024 tem 63 colunas: as etapas estão lá, a coluna de total não.
+
+**Tratamento:** o total fica `NULL`. A soma das etapas **não** o substitui,
+porque a identidade `creche + pré + fundamental + médio + profissional + EJA +
+especial exclusiva = total` só fecha exatamente em 2023 e 2025; de 2014 a 2022
+as etapas somam entre 99,6% e 99,96% do total. Essa folga medida virou teste
+(`assert_education_stages_reconcile_with_total`).
+
+### 2.18 O ensino médio "cai" 11% em 2025 por reclassificação
+
+`EM` passa de 100.541 (2024) para 89.098 (2025), enquanto o Ensino Médio
+Integrado sobe de 3.928 para 15.917. Médio + integrado: 104.469 → 105.015.
+
+**Tratamento:** o indicador publicado é `high_school_all` (médio + integrado).
+Teste de integração verifica que a série não varia mais de 5% entre 2024 e
+2025.
+
+### 2.19 O INEP não entrega os microdados para fora
+
+`download.inep.gov.br` responde com cadeia TLS incompleta e reset de conexão a
+partir dos runners do GitHub. A SEEDF republica o mesmo Censo Escolar recortado
+para o DF, com a RA — por isso é a fonte usada.
+
+### 2.20 Trechos cicloviários cruzam a divisa entre RAs
+
+Dos 2.293 trechos da camada 218 da IDE-DF, 35 atravessam a divisa entre duas
+RAs e 47 declaram (`cvia_ra`) uma RA diferente da que contém a maior parte da
+geometria.
+
+**Tratamento:** o km por RA vem do **recorte geodésico** de cada trecho pelos
+polígonos oficiais (elipsoide WGS84, `pyproj.Geod`), não da RA declarada. A
+fonte é internamente consistente: 671,9 km declarados = 671,9 km geodésicos =
+671,9 km recortados, e nenhum trecho foge de ±25% entre declarado e medido.
+Teste: `assert_mobility_bikeway_km_reconciles` (folga de 1%).
+
+### 2.21 A camada de estações duplica o metrô
+
+A camada 127 ("Estações e Terminais") lista 17 "ESTAÇÃO METRÔ", que também
+estão na camada 140 ("Estação de Metrô", 27 em operação) com outro
+`objectid`. Somar as duas contaria estação duas vezes — e ainda assim ficaria
+incompleto. As 5 "ESTAÇÃO BRT" da camada 127 vêm sem nome.
+
+**Tratamento:** metrô só da camada 140; da camada 127 entram apenas os 21
+terminais de ônibus. BRT fica de fora, com o motivo no catálogo de fontes.
+Teste: `assert_mobility_metro_not_double_counted`.
+
+### 2.22 O ano de construção não é a série histórica da malha
+
+A camada é um retrato do presente. Somar os km por ano de construção mostra
+quando foram feitos os trechos **que existem hoje** — um trecho removido em
+2018 não aparece em lugar nenhum.
+
+**Tratamento:** as colunas se chamam `current_network_km_built` e
+`current_network_km_cumulative`, e a interface diz "malha atual por ano de
+construção".
+
 ---
 
 ## 3. Testes do dbt
@@ -258,6 +410,8 @@ na API (`caveat` em `/api/sources` e `/api/insights`) e na interface.
 | Taxas usam população residente | RAs com muito fluxo diário de não residentes (SIA, Plano Piloto) têm taxa inflada: o denominador conta só quem mora. |
 | Denominador é sempre o Censo 2022 | Taxas de anos distantes de 2022 carregam esse denominador. `population_reference_year` acompanha o número. |
 | CNES mede infraestrutura, não produção | "46 estabelecimentos" não diz quantos atendimentos foram feitos. |
+| Mobilidade mede infraestrutura instalada | Km de ciclovia e estação na RA não dizem nada sobre uso, qualidade ou acesso a pé. |
+| Matrícula é contada onde a escola fica | Não mede a escolarização dos moradores da RA. Por isso não há taxa de matrícula por habitante. |
 | Oferta instalada ≠ acesso | Moradores se deslocam entre RAs para se tratar. |
 | Clima é reanálise, não medição | Open-Meteo/ERA5 é fonte externa e não governamental, com resolução mais grossa que uma RA. |
 | População por RA só existe em 2010 e 2022 | Não há série anual por Região Administrativa. |

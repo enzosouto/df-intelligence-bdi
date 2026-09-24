@@ -67,6 +67,18 @@ weather as (
 
 health as (
     select region_id, facilities_total from {{ ref('mart_health_region') }}
+),
+
+education as (
+    select
+        region_id,
+        count(*) filter (where is_year_complete and enrollment_total is not null) as years_with_enrollment,
+        max(schools_total) filter (
+            where census_year = (select max(census_year) from {{ ref('mart_education_yearly') }})
+        ) as schools_latest
+    from {{ ref('mart_education_yearly') }}
+    where scope = 'RA'
+    group by region_id
 )
 
 select
@@ -84,6 +96,8 @@ select
     coalesce(security_missing.missing_years, array[]::int[]) as security_missing_years,
 
     coalesce(health.facilities_total, 0)                     as health_facilities,
+    coalesce(education.schools_latest, 0)                    as education_schools,
+    coalesce(education.years_with_enrollment, 0)             as education_years_with_enrollment,
 
     weather.first_day                                        as weather_first_day,
     weather.last_day                                         as weather_last_day,
@@ -102,3 +116,4 @@ left join security         on security.region_id         = regions.region_id
 left join security_missing on security_missing.region_id = regions.region_id
 left join weather          on weather.region_id          = regions.region_id
 left join health           on health.region_id           = regions.region_id
+left join education        on education.region_id        = regions.region_id

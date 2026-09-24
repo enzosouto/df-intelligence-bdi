@@ -183,6 +183,27 @@ def bootstrap_schema(conn) -> None:
     conn.commit()
 
 
+def load_region_index(conn):
+    """Índice espacial das RAs oficiais, a partir de `raw.region_geo`.
+
+    Usado por toda fonte que traz coordenada (saúde, educação) para atribuir a
+    RA por point-in-polygon contra a mesma malha.
+    """
+    from shapely.geometry import shape
+    from shapely.strtree import STRtree
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT ra_code, geometry FROM raw.region_geo")
+        records = cur.fetchall()
+    if not records:
+        raise RuntimeError(
+            "raw.region_geo está vazia — rode `python -m ingestion.regions` primeiro."
+        )
+    codes = [row[0] for row in records]
+    geometries = [shape(row[1]) for row in records]
+    return codes, geometries, STRtree(geometries)
+
+
 def upsert(
     conn,
     table: str,

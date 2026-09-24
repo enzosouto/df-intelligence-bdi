@@ -24,6 +24,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   `/api/mobility/bikeways/yearly` e `/api/mobility/stations`, seção na página
   de região e três insights. Achados em `docs/data_quality.md`, 2.20–2.22.
   SEMOB e DETRAN rejeitados: não respondem a partir do runner do GitHub.
+  Validado no pipeline real: 2.293 trechos, 671,9 km; 27 estações de metrô em
+  operação em 6 das 35 RAs (40,7% da população); 44% da malha atual construída
+  entre 2012 e 2014; 147 testes dbt e 22 de integração passando.
 
 ### Decisões de fonte (educação)
 - **RA pela coordenada, não pela declaração.** Os códigos 34/35 da SEEDF estão

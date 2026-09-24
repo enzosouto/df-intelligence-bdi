@@ -623,13 +623,17 @@ insights as (
         'MOB_BIKEWAY_GAP',
         'mobility',
         'Desigualdade na oferta de infraestrutura cicloviária',
-        format(
-            'A malha cicloviária varia de %s km por 10 mil habitantes em %s a %s em %s.',
-            {{ br_decimal('min_rate', 1) }}, lowest_region,
-            {{ br_decimal('max_rate', 1) }}, highest_region
-        ),
-        round(max_rate / nullif(min_rate, 0), 2),
-        'x',
+        case
+            when min_rate = 0 then format(
+                'Entre as Regiões Administrativas com mais de 20 mil habitantes, a malha cicloviária vai de nenhum trecho registrado em %s a %s km por 10 mil habitantes em %s.',
+                lowest_region, {{ br_decimal('max_rate', 1) }}, highest_region)
+            else format(
+                'Entre as Regiões Administrativas com mais de 20 mil habitantes, a malha cicloviária varia de %s km por 10 mil habitantes em %s a %s em %s.',
+                {{ br_decimal('min_rate', 1) }}, lowest_region,
+                {{ br_decimal('max_rate', 1) }}, highest_region)
+        end,
+        max_rate,
+        'km por 10 mil hab.',
         2022,
         extract(year from current_date)::int,
         'Km de ciclovia, ciclofaixa e calçada compartilhada recortados por RA, divididos pela população do Censo 2022, restrito a RAs com pelo menos 20 mil habitantes.',

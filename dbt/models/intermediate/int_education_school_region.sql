@@ -19,9 +19,16 @@
      a malha oficial (feito na ingestão). A coordenada mais recente do código
      INEP vale para todos os anos: escola não muda de endereço sem mudar de
      código, e o arquivo de 2025 não traz coordenada.
-  2. `DECLARED_VERIFIED` — sem coordenada, aceita-se a RA declarada SOMENTE se
-     o código E o nome apontam para a mesma RA oficial. Nas RAs 34/35 isso
-     nunca acontece, e é esse o ponto.
+  2. `DECLARED_VERIFIED` — sem coordenada, aceita-se a RA declarada somente se
+     (a) o código E o nome apontam para a mesma RA oficial, e (b) o par
+     (ano, código, nome) é CONFIÁVEL: entre as escolas desse par que têm
+     coordenada, a maioria cai na RA que o par indica.
+
+     A condição (b) existe porque (a) não basta. Em 2025, as escolas do
+     Arapoanga vêm com código 35 E nome "AGUA QUENTE" — errados, mas
+     coerentes entre si. No pipeline real, as 7 escolas desse par com
+     coordenada estão todas na RA XXXIV: acerto 0%, par descartado. Nenhuma
+     exceção escrita à mão para 34/35; a evidência decide.
   3. `UNRESOLVED` — o resto. Fica sem região, visível na cobertura, em vez de
      ser empurrado para uma RA arbitrária.
 
@@ -63,13 +70,33 @@ checked_declarations as (
     left join regions     as by_code on by_code.ra_number     = declarations.declared_ra_code
 ),
 
+-- Confiabilidade de cada rótulo declarado, medida contra as coordenadas.
+pair_reliability as (
+    select
+        checked.census_year,
+        checked.declared_ra_code,
+        checked.declared_ra_name,
+        count(*)                                                      as geocoded_schools,
+        avg((checked.region_by_name = location.ra_code)::int)         as agreement
+    from checked_declarations as checked
+    inner join {{ source('raw', 'education_school_location') }} as location
+        on location.school_code = checked.school_code
+       and location.ra_code is not null
+    where checked.code_and_name_agree
+    group by 1, 2, 3
+),
+
 latest_verified as (
     select distinct on (school_code)
         school_code,
         region_by_name as region_id,
         census_year    as declared_year
-    from checked_declarations
-    where code_and_name_agree
+    from checked_declarations as checked
+    left join pair_reliability as reliability
+        using (census_year, declared_ra_code, declared_ra_name)
+    where checked.code_and_name_agree
+      -- Sem nenhuma escola geolocalizada no par, não há evidência contra ele.
+      and coalesce(reliability.agreement >= 0.5, true)
     order by school_code, census_year desc
 ),
 

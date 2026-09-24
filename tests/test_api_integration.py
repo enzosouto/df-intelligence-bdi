@@ -217,3 +217,13 @@ def test_education_is_counted_in_every_region(client):
     regions = client.get("/api/indicators").json()
     with_schools = [r for r in regions if r["education_schools"] > 0]
     assert len(with_schools) >= 33, "quase toda RA tem escola; menos que isso indica atribuição quebrada"
+
+
+def test_enrollment_gap_insight_proves_the_artifact(client):
+    """O insight recalcula quanto da 'queda' aparente se explica por escolas
+    ausentes do arquivo. Em 2015 são ~94%: se cair muito, o cruzamento pelo
+    código INEP quebrou."""
+    insights = {i["insight_id"]: i for i in client.get("/api/insights").json()}
+    gap = insights.get("EDU_ENROLLMENT_FILE_GAP")
+    if gap:
+        assert 50 <= gap["value_numeric"] <= 110, gap["finding"]

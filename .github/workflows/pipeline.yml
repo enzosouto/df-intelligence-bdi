@@ -173,6 +173,7 @@ jobs:
             where not coordinate_agrees_with_declaration
             group by 1, 2 order by 3 desc limit 20;" || true
           psql "$DATABASE_URL" -c "select insight_id, left(finding, 220) from marts.mart_insights order by 1;" || true
+          psql "$DATABASE_URL" -c "select insight_id, value_numeric, finding from marts.mart_insights where domain = 'education' or insight_id like 'EDU%';" || true
 
       - name: Guardar artefatos do dbt
         if: always()

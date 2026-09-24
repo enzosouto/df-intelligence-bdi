@@ -213,7 +213,17 @@ O código está invertido em todos os anos; o nome passou a vir invertido em 202
 point-in-polygon contra a malha oficial (a mesma técnica da saúde). A
 coordenada mais recente do código INEP vale para todos os anos — o arquivo de
 2025 não traz coordenada. Sem coordenada, a RA declarada só é aceita se código
-**e** nome apontam para a mesma RA; senão a escola fica `UNRESOLVED`. Teste de
+**e** nome apontam para a mesma RA **e** o rótulo é confiável — entre as
+escolas daquele (ano, código, nome) que têm coordenada, a maioria cai na RA
+indicada. A segunda condição não é redundante: em 2025 as escolas do Arapoanga
+vêm com código 35 **e** nome "AGUA QUENTE", errados mas coerentes entre si; no
+pipeline real, as 7 com coordenada estão todas na RA XXXIV (acerto 0%), e o
+rótulo é descartado. Sem rótulo confiável, a escola fica `UNRESOLVED`.
+
+Das 1.471 escolas com coordenada e declaração, 106 (7%) discordam — quase
+todas por **declaração defasada** em RAs desmembradas: Águas Claras →
+Arniqueira (13), Sobradinho → Sobradinho II (9), Planaltina → Arapoanga (8),
+Ceilândia → Sol Nascente (5). A coordenada reflete o território atual. Teste de
 regressão com as duas escolas acima:
 `assert_education_ra_34_35_follow_coordinates`.
 

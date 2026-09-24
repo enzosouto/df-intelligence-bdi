@@ -7,11 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONIOENCODING=utf-8
 
-# postgresql-client: o passo final do pipeline confere o que entrou no banco.
-# bash: o script usa arrays e `set -o pipefail`.
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y bash postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
+# Sem apt-get: a imagem slim já traz bash, e a conferência final do pipeline
+# usa psycopg2 (não psql). Menos pacotes de sistema, menos pontos de falha.
 
 WORKDIR /app
 

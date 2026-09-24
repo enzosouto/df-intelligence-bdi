@@ -2,6 +2,24 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [Não lançado]
+
+### Corrigido
+- **Imagem do pipeline** (`ingestion/Dockerfile`): removido o `apt-get install
+  bash postgresql-client`. Nenhum script usa `psql` (a conferência final é via
+  `psycopg2`) e a `python:3.12-slim` já traz bash. Um passo de rede a menos
+  para quebrar o build. `docker compose run --rm pipeline` testado.
+- **`run_pipeline.sh --skip-ingestion`** exigia as 7 fontes no ar, porque a
+  validação rodava antes de checar a flag. Remodelar o que já está no banco
+  não depende de rede: agora a validação só roda quando há ingestão.
+- **CI — ingestão em todo push na `main`:** o `if:` do job contradizia o
+  comentário e o README ("roda todo dia 5"). Agora só roda no agendamento ou
+  via `workflow_dispatch` com `run_ingestion: true` (o input existia e não era
+  lido).
+- **CI — teste de integração da API** instalava `fastapi`/`uvicorn` sem versão;
+  passa a usar `api/requirements.txt`, as mesmas versões da imagem.
+- **CI — job `docker`** passa a construir também a imagem do pipeline.
+
 ## [1.0.0] — 2026-09-24
 
 Primeira versão funcional: pipeline completo de fontes públicas reais até a

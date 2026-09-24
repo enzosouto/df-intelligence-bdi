@@ -94,7 +94,9 @@ jobs:
     name: Ingestão + dbt + testes de integração
     runs-on: ubuntu-latest
     needs: [unit-tests, validate-sources]
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_ingestion)
 
     services:
       postgres:
@@ -137,7 +139,9 @@ jobs:
           dbt build --no-version-check
 
       - name: Testes de integração da API
-        run: pip install fastapi httpx uvicorn && pytest tests/test_api_integration.py
+        # Mesmas versões pinadas da imagem da API: o teste vale para o que vai
+        # para produção, não para a última versão do PyPI.
+        run: pip install -r api/requirements.txt httpx && pytest tests/test_api_integration.py
 
       - name: Relatório do pipeline
         if: always()
@@ -168,7 +172,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Construir API e frontend
+      - name: Construir API, frontend e pipeline
         run: |
           docker build -f api/Dockerfile -t dfi-api .
           docker build -f frontend/Dockerfile -t dfi-frontend frontend
+          docker build -f ingestion/Dockerfile -t dfi-pipeline .

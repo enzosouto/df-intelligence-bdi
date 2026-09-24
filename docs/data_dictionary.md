@@ -253,7 +253,7 @@ Grão: `region_id`. Existe para que lacuna apareça como lacuna.
 | `security_months_with_data` | Meses distintos com dado. |
 | `health_facilities` | Estabelecimentos atribuídos. |
 | `weather_first_day`, `weather_last_day`, `weather_days` | Cobertura climática. |
-| `has_all_domains` | Tem dado nos quatro domínios. |
+| `has_all_domains` | Tem dado nos quatro domínios originais (população, segurança, saúde, clima). |
 
 ---
 

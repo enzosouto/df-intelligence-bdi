@@ -55,6 +55,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   `ingestion/common.py`: saúde e educação usam o mesmo índice espacial.
 
 ### Corrigido
+- **Terminais de ônibus deixam de ser publicados.** A validação visual com
+  dados reais mostrou "0 terminais" no Plano Piloto: a camada da IDE-DF omite
+  a Rodoviária do Plano Piloto. Métrica que não pode ser calculada não é
+  publicada.
+- **Gráficos:** ano com dado cercado de lacunas não aparecia (2014 e 2021 nas
+  matrículas); a área era preenchida por cima das lacunas (série populacional
+  do DF); o último rótulo do eixo X se sobrepunha ao anterior. Corrigidos no
+  `LineChart`.
+- **Interface:** eixo do gráfico de crimes em ISO (`2018-01-01`), título dos
+  cards de indicador quase invisível na página de fontes, textos que citavam só
+  quatro domínios. Mapa ganhou "Ciclovia / 10 mil hab.".
+- **Regra 5 (nenhum cálculo de indicador na API) violada em três endpoints.**
+  `/api/health` calculava a taxa por 10 mil habitantes; `/api/security/summary`
+  somava as RAs para o total do DF; `/api/weather/summary` fazia a média do
+  clima do DF. Os três números agora saem do dbt (`mart_health_region.
+  facilities_per_10k`, `mart_security_df_monthly`, `mart_weather_df_monthly`),
+  onde são testados. A série de segurança do DF ganhou `regions_reporting`.
 - **Imagem do pipeline** (`ingestion/Dockerfile`): removido o `apt-get install
   bash postgresql-client`. Nenhum script usa `psql` (a conferência final é via
   `psycopg2`) e a `python:3.12-slim` já traz bash. Um passo de rede a menos

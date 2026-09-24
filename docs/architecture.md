@@ -30,8 +30,8 @@ flowchart TB
 
     subgraph DBT["dbt"]
         SEEDS["seeds<br/>mapeamentos versionados"]
-        MODELS["24 modelos"]
-        TESTS["105 testes de qualidade"]
+        MODELS["37 modelos"]
+        TESTS["153 testes de qualidade"]
     end
 
     API["FastAPI<br/>leitura sobre marts · OpenAPI"]
@@ -200,7 +200,7 @@ Todo o pipeline pode rodar quantas vezes for preciso sem corromper nada:
 2. `python -m ingestion` — `regions` primeiro (cria as chaves), depois
    `population`, `security`, `health`, `weather`.
 3. `dbt seed` — carrega os mapeamentos versionados.
-4. `dbt build` — constrói os 24 modelos e roda os 105 testes. Teste que falha
+4. `dbt build` — constrói os 37 modelos e roda os 153 testes. Teste que falha
    interrompe o build.
 5. Conferência final: conta linhas em cada mart e imprime o estado de cada
    fonte.

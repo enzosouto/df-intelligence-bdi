@@ -69,7 +69,7 @@ sources:
         description: Recorte geodésico de cada trecho cicloviário pelas RAs oficiais.
 
       - name: mobility_station
-        description: Estações de metrô (camada 140) e terminais de ônibus (camada 127) com RA pela geometria.
+        description: Estações de metrô (camada 140) com RA pela geometria.
 
       - name: weather_daily
         description: Série diária de clima por RA (Open-Meteo/ERA5). Fonte NÃO governamental.

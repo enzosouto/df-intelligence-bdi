@@ -48,7 +48,7 @@ Essa restrição molda todo o modelo de dados do projeto e está documentada em
 | SSP-DF | Balanço Criminal — Dados por Região Administrativa | `https://www.ssp.df.gov.br/dados-por-regiao-administrativa/` | Página HTML + XLS/XLSX | 2014–2026 | RA × mês × natureza | Mensal | **VALIDADA** |
 | Ministério da Saúde / CNES | Estabelecimentos de saúde | `https://apidadosabertos.saude.gov.br/cnes/estabelecimentos?codigo_municipio=530010` | API REST (JSON) | Posição atual | Estabelecimento (lat/lon → RA) | Mensal | **VALIDADA** |
 | SEEDF / Inep | Série histórica de unidades escolares e de matrículas (Educacenso) | `https://data.se.df.gov.br/api/3/action/package_show?id=...` | API CKAN + CSV | 2014–2025 | Escola (lat/lon → RA) × ano | Anual | **VALIDADA** |
-| IDE-DF / SEDUH (GDF) | Sistema Cicloviário (218), Estação de Metrô (140), Estações e Terminais (127) | `https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer/{camada}/query` | API ArcGIS REST (GeoJSON) | Posição atual | Trecho/estação → RA | Eventual | **VALIDADA** |
+| IDE-DF / SEDUH (GDF) | Sistema Cicloviário (218), Estação de Metrô (140) | `https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer/{camada}/query` | API ArcGIS REST (GeoJSON) | Posição atual | Trecho/estação → RA | Eventual | **VALIDADA** |
 | Open-Meteo | Historical Weather API (ERA5) | `https://archive-api.open-meteo.com/v1/archive` | API REST (JSON) | 1940–hoje | Ponto (centroide da RA) × dia | Diária (D-5) | **VALIDADA** |
 | Portal de Dados Abertos do DF | Catálogo geral | `https://www.dados.df.gov.br/` | SPA Liferay 7.4 | — | — | — | **REJEITADA** |
 | Inep | Microdados do Censo Escolar | `https://download.inep.gov.br/dados_abertos/microdados_censo_escolar_{ano}.zip` | ZIP | — | — | — | **REJEITADA** |
@@ -236,8 +236,9 @@ Essa restrição molda todo o modelo de dados do projeto e está documentada em
     (1.764 ciclovias, 259 ciclofaixas, 201 calçadas compartilhadas, 69 outros).
   * **140 Estação de Metrô** — 29 estações: 27 em operação, 2 em construção
     (Onoyama e 104 Sul).
-  * **127 Estações e Terminais** — só os 21 "TERMINAIS DFTRANS". As 17
-    "ESTAÇÃO METRÔ" repetem a camada 140; as 5 "ESTAÇÃO BRT" vêm sem nome.
+  * **127 Estações e Terminais** — **não usada**. As 17 "ESTAÇÃO METRÔ"
+    repetem a camada 140, as 5 "ESTAÇÃO BRT" vêm sem nome e os 21
+    "TERMINAIS DFTRANS" omitem a Rodoviária do Plano Piloto.
 * **Uso:** `fct_mobility_bikeway` (trecho × RA, recorte geodésico),
   `fct_mobility_station`, `mart_mobility_region`,
   `mart_mobility_bikeway_yearly`.

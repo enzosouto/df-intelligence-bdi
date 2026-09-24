@@ -14,6 +14,10 @@ on:
         description: "Executar a ingestão completa (acessa as fontes públicas)"
         type: boolean
         default: false
+      screenshots:
+        description: "Após a ingestão, subir API + frontend e capturar as telas com dados reais"
+        type: boolean
+        default: false
 
 concurrency:
   group: pipeline-${{ github.ref }}
@@ -142,6 +146,21 @@ jobs:
         # Mesmas versões pinadas da imagem da API: o teste vale para o que vai
         # para produção, não para a última versão do PyPI.
         run: pip install -r api/requirements.txt httpx && pytest tests/test_api_integration.py
+
+      - name: Capturar telas com dados reais
+        if: inputs.screenshots
+        env:
+          API_CORS_ORIGINS: http://localhost:5173
+        run: |
+          pip install -q playwright==1.49.1 && python -m playwright install --with-deps chromium > /dev/null
+          (cd frontend && npm ci --silent)
+          nohup uvicorn api.main:app --port 8000 > /tmp/api.log 2>&1 &
+          (cd frontend && nohup npm run dev -- --port 5173 > /tmp/vite.log 2>&1 &)
+          for i in $(seq 1 60); do
+            curl -sf localhost:8000/api/health-check > /dev/null && curl -sf localhost:5173 > /dev/null && break
+            sleep 1
+          done
+          python scripts/screenshots.py --print-base64 || (tail -50 /tmp/api.log /tmp/vite.log; exit 1)
 
       - name: Relatório do pipeline
         if: always()

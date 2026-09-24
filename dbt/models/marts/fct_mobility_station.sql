@@ -1,5 +1,9 @@
 /*
-  Estações de metrô e terminais de ônibus. Grão: estação.
+  Estações de metrô. Grão: estação.
+
+  Só metrô: terminais de ônibus foram retirados porque a camada da IDE-DF não
+  inclui a Rodoviária do Plano Piloto (ver docs/data_quality.md, 2.21). Linhas
+  antigas de terminal no raw são ignoradas aqui.
 
   A RA vem da geometria, não do nome: a "Estação Arniqueiras" fica, pelo
   polígono oficial, em Águas Claras.
@@ -24,3 +28,4 @@ select
     stations._source_url                                            as source_url
 from {{ source('raw', 'mobility_station') }} as stations
 left join {{ ref('dim_region') }}           as regions on regions.region_id = stations.ra_code
+where stations.station_kind = 'METRO'

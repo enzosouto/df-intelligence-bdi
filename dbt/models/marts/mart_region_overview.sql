@@ -138,7 +138,6 @@ select
     mobility.bikeway_km,
     mobility.bikeway_km_per_10k,
     mobility.metro_stations,
-    mobility.bus_terminals,
 
     weather_normals.temp_mean_c,
     weather_normals.temp_max_avg_c,

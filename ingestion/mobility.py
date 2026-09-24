@@ -1,4 +1,4 @@
-"""Ingestão de mobilidade: malha cicloviária, metrô e terminais (IDE-DF).
+"""Ingestão de mobilidade: malha cicloviária e metrô (IDE-DF).
 
 Fonte: FeatureServer público da Infraestrutura de Dados Espaciais do DF
 (`geoservicos.ide.df.gov.br`, serviço `Publico/IDEDF`), mantido pela SEDUH.
@@ -21,11 +21,13 @@ TRÊS CAMADAS, TRÊS DECISÕES (verificadas nos dados reais)
 2. **Estação de Metrô (camada 140)** — 29 estações, com situação ("EM
    OPERAÇÃO" / "EM CONSTRUÇÃO"). É a fonte única do metrô.
 
-3. **Estações e Terminais (camada 127)** — mistura três coisas. Dela só entram
-   os terminais de ônibus:
-   * as 17 "ESTAÇÃO METRÔ" DUPLICAM parte da camada 140 (que tem 27 em
-     operação). Somar as duas contaria estação duas vezes;
-   * as 5 "ESTAÇÃO BRT" vêm sem nome e não dá para verificar a contagem.
+3. **Estações e Terminais (camada 127)** — NÃO é usada. Verificado nos dados:
+   * as 17 "ESTAÇÃO METRÔ" duplicam parte da camada 140;
+   * as 5 "ESTAÇÃO BRT" vêm sem nome;
+   * os 21 "TERMINAIS DFTRANS" não incluem a Rodoviária do Plano Piloto — o
+     maior terminal do DF. Publicar "0 terminais no Plano Piloto" seria
+     afirmar uma ausência que não existe. Métrica que não pode ser calculada
+     não é publicada.
 """
 
 from __future__ import annotations
@@ -55,7 +57,6 @@ log = logging.getLogger("ingestion.mobility")
 FEATURE_SERVER = "https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer"
 BIKEWAY_LAYER = 218
 METRO_LAYER = 140
-TERMINAL_LAYER = 127
 PAGE_SIZE = 1000  # maxRecordCount do serviço
 MAX_PAGES = 50
 
@@ -65,7 +66,6 @@ GEOD = Geod(ellps="WGS84")
 # no limite), não infraestrutura naquela RA.
 MIN_PIECE_KM = 0.001
 
-TERMINAL_TYPE = "TERMINAIS DFTRANS"
 
 
 # --------------------------------------------------------------------------- #
@@ -241,7 +241,7 @@ def run() -> None:
             conflict_columns=["segment_id", "ra_code"],
         )
 
-        # --- Metrô e terminais -------------------------------------------------
+        # --- Metrô -------------------------------------------------------------
         station_rows = []
         kinds: Counter[str] = Counter()
         for feature in _layer_features(session, METRO_LAYER):
@@ -257,24 +257,7 @@ def run() -> None:
             )
             kinds["METRO"] += 1
 
-        ignored: Counter[str] = Counter()
-        for feature in _layer_features(session, TERMINAL_LAYER):
-            props = feature["properties"]
-            kind = clean(props.get("let_tipo"))
-            if kind != TERMINAL_TYPE:
-                ignored[kind or "SEM TIPO"] += 1
-                continue
-            point = shape(feature["geometry"])
-            station_rows.append(
-                (
-                    "BUS_TERMINAL", props["objectid"], clean(props.get("let_nome_estac")),
-                    clean(props.get("let_situacao")), None,
-                    point.y, point.x, region_of_point(point, codes, geometries, tree),
-                    layer_url.format(TERMINAL_LAYER),
-                )
-            )
-            kinds["BUS_TERMINAL"] += 1
-        log.info("Estações gravadas: %s. Ignoradas da camada %s: %s", dict(kinds), TERMINAL_LAYER, dict(ignored))
+        log.info("Estações de metrô gravadas: %s", kinds["METRO"])
 
         tracker["rows"] += upsert(
             conn,

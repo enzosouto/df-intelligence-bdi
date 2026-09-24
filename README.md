@@ -210,7 +210,7 @@ uma vez o mapeamento RA↔subdistrito, a ingestão e a ausência de duplicata.
 | Comparação 2014 × 2026 na série de segurança | Insight de −85% comparando 29 RAs/12 meses com 31 RAs/8 meses. |
 | Fronteiras mudaram entre os Censos | "Ceilândia perdeu 29% da população" — publicado como fato. |
 | Códigos de RA 34/35 invertidos na SEEDF (e nome trocado em 2025) | Escolas do Arapoanga contadas em Água Quente. RA passou a vir da coordenada. |
-| Arquivo de matrículas de 2023 com 600 de 1.264 escolas | "Queda de 38% nas matrículas do DF". Completude medida por ano × rede; 2023 vira lacuna. |
+| Arquivos de matrículas omitem escolas ativas em 8 de 12 anos (2023: 600 de 1.264) | "Queda de 4% de 2014 para 2015" — 94% dela são escolas ausentes do arquivo. Completude medida por ano × rede; esses anos viram lacuna. |
 | Ensino médio reclassificado como integrado em 2025 | "Ensino médio perdeu 11% dos alunos". Série publicada como médio + integrado. |
 
 **Limitações declaradas na API e na interface:** dados de segurança são
@@ -430,8 +430,8 @@ Estas são propriedades das fontes, não do pipeline. Estão declaradas na API
   uma RA.
 - **A SSP-DF não publica 2024 para 15 RAs.**
 - **Matrícula é contada onde a escola fica,** não onde o aluno mora. Por isso
-  não há taxa de matrícula por habitante. O arquivo de matrículas de 2023 está
-  incompleto, e 2024 não publica total.
+  não há taxa de matrícula por habitante. Só 2014, 2021, 2024 e 2025 têm arquivo
+  de matrículas completo; 2024 não publica total.
 
 ---
 

@@ -18,9 +18,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 - **RA pela coordenada, não pela declaração.** Os códigos 34/35 da SEEDF estão
   invertidos em relação à numeração oficial em todos os anos, e o nome veio
   trocado em 2025. As escolas do Arapoanga seriam contadas em Água Quente.
-- **2023 não publicado.** O arquivo de matrículas cobre 600 das 1.264 escolas
-  do cadastro (385.801 matrículas contra ~620 mil nos anos vizinhos). Sem
-  tratamento: "queda de 38%".
+- **Só anos completos são publicados.** Em 8 dos 12 anos o arquivo de
+  matrículas omite escolas ativas do cadastro — sobretudo particulares (15% a
+  29% delas de 2015 a 2022) e, em 2023, 664 das 1.264 escolas. Prova no
+  pipeline real: das 102 escolas ausentes do arquivo de 2015, 87 tinham 26.844
+  matrículas em 2014 — 94% da "queda" 2014→2015. Publicados: 2014, 2021,
+  2024 (sem total) e 2025.
 - **2024 sem total.** A fonte não publica a coluna; a soma das etapas só fecha
   exatamente em 2023 e 2025, então não a substitui.
 - **Ensino médio = médio + integrado.** Sozinho, o médio "cai" 11% em 2025

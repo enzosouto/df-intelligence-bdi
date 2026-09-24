@@ -217,7 +217,7 @@ Essa restrição molda todo o modelo de dados do projeto e está documentada em
 * **Uso:** `fct_education_enrollment` (escola × ano) e
   `mart_education_yearly` (RA × ano e DF × ano).
 * **Limitações:** a matrícula é contada onde a escola fica, não onde o aluno
-  mora; o arquivo de matrículas de 2023 está incompleto; 2024 não publica total;
+  mora; em 8 dos 12 anos o arquivo de matrículas omite escolas ativas; 2024 não publica total;
   os códigos de RA 34/35 vêm invertidos. Detalhes e tratamento em
   [`data_quality.md`](./data_quality.md), seções 2.13 a 2.18.
 

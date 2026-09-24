@@ -783,7 +783,7 @@ def _indicator_catalog() -> list[dict]:
             "granularity": "Região Administrativa × ano",
             "source_id": "SEEDF_EDUCACENSO",
             "description": "Educação infantil, fundamental, médio (com integrado), profissional, EJA e especial.",
-            "caveat": "Contadas onde a escola fica, não onde o aluno mora. 2023 incompleto; 2024 sem total.",
+            "caveat": "Contadas onde a escola fica, não onde o aluno mora. Anos com arquivo incompleto ficam nulos; 2024 sem total.",
         },
         {
             "indicator_id": "weather_temperature",

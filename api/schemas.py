@@ -261,7 +261,7 @@ class EducationYear(BaseModel):
     is_year_complete: bool = Field(
         description=(
             "Falso quando o arquivo de matrículas da SEEDF não cobre ao menos 95% das "
-            "escolas do cadastro (caso de 2023). As matrículas desse ano vêm nulas."
+            "escolas do cadastro em alguma rede (8 dos 12 anos). As matrículas desse ano vêm nulas."
         )
     )
     schools_total: int = Field(description="Escolas no cadastro do Censo Escolar, todas as redes.")

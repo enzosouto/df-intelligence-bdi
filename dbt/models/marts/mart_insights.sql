@@ -211,7 +211,7 @@ education_span as (
 education_year_coverage as (
     select
         census_year,
-        bool_and(is_complete)                                                   as is_complete,
+        bool_and(is_complete)                                                          as is_complete,
         sum(schools_in_enrollment_file)::numeric / nullif(sum(schools_in_registry), 0) as coverage
     from {{ ref('mart_education_coverage') }}
     group by census_year
@@ -219,12 +219,56 @@ education_year_coverage as (
 
 education_gaps as (
     select
-        string_agg(census_year::text, ', ' order by census_year)  as incomplete_years,
-        min(coverage)                                             as worst_coverage,
-        min(census_year)                                          as first_gap_year,
-        max(census_year)                                          as last_gap_year
+        string_agg(census_year::text, ', ' order by census_year) as incomplete_years,
+        count(*)                                                 as incomplete_count,
+        (select count(*) from education_year_coverage)           as total_years,
+        min(census_year)                                         as first_gap_year,
+        max(census_year)                                         as last_gap_year
     from education_year_coverage
     where not is_complete
+),
+
+-- A prova do artefato: no primeiro ano incompleto logo após um ano completo,
+-- quanto da "queda" aparente é explicada por escolas que simplesmente não
+-- estão no arquivo, mas tinham matrícula no ano anterior.
+education_artifact_year as (
+    select current_year.census_year as gap_year, current_year.census_year - 1 as base_year
+    from education_year_coverage as current_year
+    inner join education_year_coverage as previous_year
+        on previous_year.census_year = current_year.census_year - 1
+    where not current_year.is_complete and previous_year.is_complete
+    order by current_year.census_year
+    limit 1
+),
+
+education_missing_schools as (
+    select registry.school_code
+    from {{ ref('stg_education_schools') }} as registry
+    cross join education_artifact_year as artifact
+    where registry.census_year = artifact.gap_year
+      and not exists (
+          select 1 from {{ ref('stg_education_enrollment') }} as enrolled
+          where enrolled.census_year = artifact.gap_year
+            and enrolled.school_code = registry.school_code
+      )
+),
+
+education_artifact as (
+    select
+        artifact.gap_year,
+        artifact.base_year,
+        (select sum(total_published) from {{ ref('fct_education_enrollment') }}
+          where census_year = artifact.base_year)                              as base_total,
+        (select sum(total_published) from {{ ref('fct_education_enrollment') }}
+          where census_year = artifact.gap_year)                               as gap_total_as_published,
+        (select count(*) from education_missing_schools)                       as missing_schools,
+        (select count(*) from {{ ref('fct_education_enrollment') }} as base
+          where base.census_year = artifact.base_year and base.total_published > 0
+            and base.school_code in (select school_code from education_missing_schools)) as missing_with_base_enrollment,
+        (select sum(base.total_published) from {{ ref('fct_education_enrollment') }} as base
+          where base.census_year = artifact.base_year
+            and base.school_code in (select school_code from education_missing_schools)) as missing_base_enrollment
+    from education_artifact_year as artifact
 ),
 
 insights as (
@@ -480,20 +524,27 @@ insights as (
     select
         'EDU_ENROLLMENT_FILE_GAP',
         'quality',
-        'Arquivo de matrículas incompleto',
+        'Arquivos de matrículas que omitem escolas ativas',
         format(
-            'O arquivo de matrículas publicado pela SEEDF para %s cobre apenas %s%% das escolas do cadastro do mesmo ano. As matrículas desse ano não são exibidas: somá-las mostraria uma queda que não aconteceu.',
-            incomplete_years, {{ br_decimal('100.0 * worst_coverage', 0) }}
+            'Em %s dos %s anos publicados pela SEEDF, o arquivo de matrículas omite escolas ativas do cadastro do mesmo ano (%s). Somados como vêm, mostrariam quedas que não aconteceram: de %s para %s, o total cairia de %s para %s. Mas %s escolas ausentes do arquivo de %s tinham %s matrículas em %s — %s%% da queda aparente. Esses anos aparecem como lacuna.',
+            gaps.incomplete_count, gaps.total_years, gaps.incomplete_years,
+            artifact.base_year, artifact.gap_year,
+            {{ br_int('artifact.base_total') }}, {{ br_int('artifact.gap_total_as_published') }},
+            {{ br_int('artifact.missing_with_base_enrollment') }}, artifact.gap_year,
+            {{ br_int('artifact.missing_base_enrollment') }}, artifact.base_year,
+            {{ br_decimal('100.0 * artifact.missing_base_enrollment / nullif(artifact.base_total - artifact.gap_total_as_published, 0)', 0) }}
         ),
-        round(100.0 * worst_coverage, 1),
+        round(100.0 * artifact.missing_base_enrollment
+              / nullif(artifact.base_total - artifact.gap_total_as_published, 0), 1),
         '%',
-        first_gap_year,
-        last_gap_year,
-        'Fração das escolas do cadastro de unidades escolares presentes no arquivo de matrículas do mesmo ano, por rede. Abaixo de 95% o ano não é publicado.',
+        gaps.first_gap_year,
+        gaps.last_gap_year,
+        'Escolas do cadastro de unidades escolares ausentes do arquivo de matrículas do mesmo ano, cruzadas pelo código INEP com as matrículas que tinham no ano anterior. Ano com menos de 95% das escolas do cadastro em alguma rede não é publicado.',
         'SEEDF_EDUCACENSO',
-        'Ausência de dado não é ausência de aluno. O número de escolas continua disponível, porque o cadastro está completo.'
-    from education_gaps
-    where incomplete_years is not null
+        'Ausência de dado não é ausência de aluno. O número de escolas continua disponível em todos os anos, porque o cadastro está completo.'
+    from education_gaps as gaps
+    cross join education_artifact as artifact
+    where gaps.incomplete_years is not null
 
     union all
 

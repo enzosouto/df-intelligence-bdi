@@ -185,8 +185,9 @@ def test_invalid_order_by_is_rejected(client):
 # Educação — cada teste codifica um achado real dos arquivos da SEEDF
 # --------------------------------------------------------------------------- #
 def test_incomplete_enrollment_year_is_a_gap_not_a_drop(client):
-    """O arquivo de matrículas de 2023 cobre ~47% das escolas. Somado, fabricaria
-    uma queda de 38%. Ele precisa vir marcado e com matrícula nula."""
+    """Os arquivos de 2015–2020, 2022 e 2023 omitem escolas ativas do cadastro
+    (2023: 600 de 1.264). Somados, fabricariam quedas. Precisam vir marcados e
+    com matrícula nula."""
     series = client.get("/api/education").json()
     assert series, "série de educação do DF vazia"
     for year in series:

@@ -46,7 +46,7 @@ const securityChart = computed<Series[]>(() => {
 })
 
 // Etapas por ano. Ano incompleto chega com null e vira quebra na linha —
-// o arquivo de matrículas de 2023 da SEEDF não cobre metade das escolas.
+// em 8 dos 12 anos, o arquivo de matrículas da SEEDF omite escolas ativas do cadastro.
 const educationChart = computed<Series[]>(() => {
   const stages = [
     { key: 'early_childhood', label: 'Educação infantil', color: '#C3E86B' },

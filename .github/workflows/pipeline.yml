@@ -167,6 +167,11 @@ jobs:
             select region_assignment, count(*), count(*) filter (where coordinate_agrees_with_declaration) as agree,
                    count(*) filter (where not coordinate_agrees_with_declaration) as disagree
             from intermediate.int_education_school_region group by 1;" || true
+          psql "$DATABASE_URL" -c "
+            select declared_region_id, region_id as coordinate_region_id, count(*)
+            from intermediate.int_education_school_region
+            where not coordinate_agrees_with_declaration
+            group by 1, 2 order by 3 desc limit 20;" || true
           psql "$DATABASE_URL" -c "select insight_id, left(finding, 220) from marts.mart_insights order by 1;" || true
 
       - name: Guardar artefatos do dbt

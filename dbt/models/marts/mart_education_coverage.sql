@@ -4,14 +4,16 @@
 
   POR QUE EXISTE
   --------------
-  O arquivo de matrículas de 2023 publicado pela SEEDF está incompleto: traz
-  600 escolas e 385.801 matrículas, contra ~1.150 escolas e ~620 mil matrículas
-  nos anos vizinhos (creche: 177 matrículas, contra ~33 mil). Somado
-  ingenuamente, ele fabricaria uma "queda de 38% nas matrículas do DF".
+  Os arquivos de matrículas da SEEDF omitem escolas ATIVAS do cadastro (que
+  oferecem etapas e tinham matrícula no ano anterior) em 8 dos 12 anos:
+  particulares de 2015 a 2020 e 2022 (15% a 29% delas) e, em 2023, 664 das
+  1.264 escolas. Verificado no pipeline real: das 102 escolas ausentes do
+  arquivo de 2015, 87 tinham 26.844 matrículas em 2014 — 94% da "queda" de
+  2014 para 2015.
 
-  Em vez de uma exceção escrita à mão para 2023, a completude é MEDIDA para
-  todo ano e setor: fração das escolas do cadastro que aparecem no arquivo de
-  matrículas. Abaixo do limiar, o ano×setor não é publicado — vira lacuna.
+  Em vez de uma lista de anos escrita à mão, a completude é MEDIDA para todo
+  ano e setor: fração das escolas do cadastro que aparecem no arquivo de
+  matrículas. Abaixo do limiar em qualquer rede, o ano não é publicado.
 */
 
 {% set min_coverage = 0.95 %}

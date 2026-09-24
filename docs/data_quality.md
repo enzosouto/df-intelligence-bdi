@@ -222,21 +222,40 @@ Efeito colateral útil: como a escola é um ponto, a série por RA fica em
 criação de Sol Nascente, Arniqueira, Arapoanga e Água Quente — o oposto da
 população por RA (2.10).
 
-### 2.16 O arquivo de matrículas de 2023 está incompleto
+### 2.16 Os arquivos de matrículas omitem escolas ativas em 8 de 12 anos
 
-| Ano | Escolas no arquivo | Matrículas | Creche |
+Fração das escolas do cadastro presentes no arquivo de matrículas do mesmo ano
+(pipeline real, setembro de 2026):
+
+| Ano | Pública | Conveniada | Particular |
 |---|---|---|---|
-| 2022 | 1.154 | 619.635 | 32.972 |
-| **2023** | **600** | **385.801** | **177** |
-| 2025 | 1.332 | 620.297 | 42.582 |
+| 2014 | 100% | 100% | 100% |
+| 2015 | 98,6% | 100% | **78,6%** |
+| 2016 | 98,2% | 100% | **78,2%** |
+| 2017 | 97,6% | 100% | **76,3%** |
+| 2018 | 97,4% | 100% | **71,4%** |
+| 2019 | 98,5% | 100% | **77,6%** |
+| 2020 | 98,5% | 100% | **85,4%** |
+| 2021 | 98,8% | 100% | 98,7% |
+| 2022 | 98,5% | 100% | **79,2%** |
+| 2023 | **89,3%** | **0%** | **0%** |
+| 2024 | 100% | 100% | 100% |
+| 2025 | 100% | 100% | 100% |
 
-O cadastro de escolas de 2023 tem 1.264 unidades. Somado ingenuamente, o
-arquivo fabricaria uma queda de 38% nas matrículas do DF.
+As escolas ausentes **não** são escolas sem aluno: no cadastro elas estão
+ativas (`ESCOLAS = 1`) e oferecem etapas. Das 102 ausentes do arquivo de 2015,
+87 tinham **26.844 matrículas em 2014**; a "queda" de 2014 para 2015 é de
+28.650 (668.542 → 639.892). Ou seja, **94% da queda aparente são escolas que
+não estão no arquivo**. Em 2022, 78 das 108 ausentes tinham 16.546 matrículas
+em 2021. Em 2023 o arquivo traz só a rede pública, e incompleta: 600 escolas,
+385.801 matrículas, creche com 177.
 
-**Tratamento:** sem exceção escrita à mão. `mart_education_coverage` mede,
-para todo ano e rede, a fração das escolas do cadastro presentes no arquivo de
-matrículas. Abaixo de 95%, as matrículas do ano saem nulas e a linha do gráfico
-quebra. O número de escolas continua publicado, porque o cadastro é completo.
+**Tratamento:** sem lista de anos escrita à mão. `mart_education_coverage` mede
+a completude por ano e rede; abaixo de 95% em qualquer rede, as matrículas do
+ano saem nulas e a linha do gráfico quebra. Publicados: **2014, 2021, 2024 e
+2025**. O número de escolas continua publicado em todos os anos, porque o
+cadastro é completo. O insight `EDU_ENROLLMENT_FILE_GAP` recalcula a prova
+acima a cada execução.
 
 ### 2.17 2024 não publica o total de matrículas
 

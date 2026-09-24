@@ -35,3 +35,6 @@ seeds:
     security_nature_map:
       +column_types:
         is_violent: boolean
+    education_ra_alias:
+      +column_types:
+        seedf_ra_name: text

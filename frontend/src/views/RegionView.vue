@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api'
 import { dec, monthLabel, num, pct, temperature } from '@/format'
-import type { Coverage, HealthSummary, RegionIndicators, SecurityPoint, WeatherPoint } from '@/types'
+import type { Coverage, EducationYear, HealthSummary, RegionIndicators, SecurityPoint, WeatherPoint } from '@/types'
 import type { Series } from '@/components/chart'
 import LineChart from '@/components/LineChart.vue'
 import LoadState from '@/components/LoadState.vue'
@@ -18,6 +18,7 @@ const region = ref<RegionIndicators | null>(null)
 const security = ref<SecurityPoint[]>([])
 const weather = ref<WeatherPoint[]>([])
 const health = ref<HealthSummary | null>(null)
+const education = ref<EducationYear[]>([])
 const coverage = ref<Coverage | null>(null)
 const parentName = ref<string | null>(null)
 
@@ -43,6 +44,27 @@ const securityChart = computed<Series[]>(() => {
     }
   })
 })
+
+// Etapas por ano. Ano incompleto chega com null e vira quebra na linha —
+// o arquivo de matrículas de 2023 da SEEDF não cobre metade das escolas.
+const educationChart = computed<Series[]>(() => {
+  const stages = [
+    { key: 'early_childhood', label: 'Educação infantil', color: '#C3E86B' },
+    { key: 'elementary', label: 'Fundamental', color: '#4CC2FF' },
+    { key: 'high_school_all', label: 'Médio (com integrado)', color: '#A98BFF' },
+    { key: 'youth_adult', label: 'EJA', color: '#F5A524' },
+  ] as const
+  return stages.map((stage) => ({
+    key: stage.key,
+    label: stage.label,
+    color: stage.color,
+    points: education.value.map((year) => ({ x: String(year.census_year), y: year[stage.key] })),
+  }))
+})
+
+const educationGaps = computed(() =>
+  education.value.filter((year) => !year.is_year_complete).map((year) => year.census_year),
+)
 
 const weatherChart = computed<Series[]>(() => [
   {
@@ -85,17 +107,19 @@ async function load() {
   error.value = null
   parentName.value = null
   try {
-    const [indicators, securityData, weatherData, healthData, coverageData] = await Promise.all([
+    const [indicators, securityData, weatherData, healthData, coverageData, educationData] = await Promise.all([
       api.regionIndicators(props.regionId),
       api.securitySummary({ region_id: props.regionId, year_from: 2018 }),
       api.weather({ region_id: props.regionId, year_from: 2022, limit: 600 }),
       api.health({ region_id: props.regionId }),
       api.coverage(),
+      api.education({ region_id: props.regionId }),
     ])
     region.value = indicators
     security.value = securityData
     weather.value = weatherData
     health.value = healthData[0] ?? null
+    education.value = educationData
     coverage.value = coverageData.find((item) => item.region_id === props.regionId) ?? null
 
     if (indicators.inferred_parent_region_id) {
@@ -135,7 +159,7 @@ watch(() => props.regionId, load)
         </header>
 
         <!-- Indicadores principais -->
-        <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <div class="card card-pad">
             <p class="label" style="color: #5ee6c5">População</p>
             <p class="metric mt-2">{{ num(region.population_2022) }}</p>
@@ -162,6 +186,14 @@ watch(() => props.regionId, load)
             <p class="metric mt-2">{{ num(region.health_facilities) }}</p>
             <p class="mt-2 text-xs text-faint">
               estabelecimentos · {{ num(region.health_facilities_sus_ambulatory) }} com atendimento ambulatorial SUS
+            </p>
+          </div>
+          <div class="card card-pad">
+            <p class="label" style="color: #c3e86b">Educação</p>
+            <p class="metric mt-2">{{ num(region.education_schools) }}</p>
+            <p class="mt-2 text-xs text-faint">
+              escolas · {{ num(region.education_enrollment) }} matrículas
+              <template v-if="region.education_reference_year">em {{ region.education_reference_year }}</template>
             </p>
           </div>
           <div class="card card-pad">
@@ -294,6 +326,39 @@ watch(() => props.regionId, load)
             produção. Dos estabelecimentos desta RA,
             {{ num(health.assigned_by_neighborhood) }} foram localizados pelo bairro informado por
             falta de coordenada no cadastro.
+          </DataNotice>
+        </section>
+
+        <!-- Educação -->
+        <section v-if="education.length" class="card card-pad">
+          <h2 class="font-display text-lg font-semibold">Matrículas por etapa</h2>
+          <p class="mb-5 mt-1 text-xs text-faint">
+            Censo Escolar · todas as redes · escolas localizadas nesta RA
+          </p>
+          <LineChart :series="educationChart" :area="false" :format-value="(value) => num(value)" />
+
+          <dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+            <div v-for="item in [
+              { label: 'Escolas', value: region.education_schools, title: 'Unidades escolares de todas as redes na RA' },
+              { label: 'Escolas públicas', value: region.education_schools_public, title: 'Rede distrital e federal' },
+              { label: 'Matrículas', value: region.education_enrollment, title: 'Total publicado pela SEEDF no ano de referência' },
+              { label: 'Na rede pública', value: region.education_enrollment_public_share_pct, title: 'Participação da rede pública nas matrículas', suffix: '%' },
+            ]" :key="item.label">
+              <dt class="label" :title="item.title">{{ item.label }}</dt>
+              <dd class="mt-1 font-display text-xl font-semibold tnum">
+                {{ item.suffix ? `${dec(item.value, 1)}${item.value === null ? '' : item.suffix}` : num(item.value) }}
+              </dd>
+            </div>
+          </dl>
+
+          <DataNotice class="mt-5">
+            Matrícula é contada onde a escola fica, não onde o aluno mora — por isso não há taxa
+            por habitante. A região de cada escola vem da coordenada, não do código declarado pela
+            SEEDF, que está invertido entre Arapoanga e Água Quente.
+          </DataNotice>
+          <DataNotice v-if="educationGaps.length" tone="warn" class="mt-3">
+            {{ educationGaps.join(', ') }}: o arquivo de matrículas publicado não cobre as escolas
+            do cadastro. O ano aparece como lacuna na linha, não como queda.
           </DataNotice>
         </section>
 

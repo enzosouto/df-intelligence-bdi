@@ -47,6 +47,18 @@ sources:
       - name: health_unit_type
         description: Domínio de tipos de unidade do CNES, obtido da própria API.
 
+      - name: education_school
+        description: Cadastro de escolas do Educacenso (SEEDF), grão escola × ano de censo.
+
+      - name: education_enrollment
+        description: Matrículas do Educacenso agregadas para escola × ano. Etapa sem valor publicado é NULL.
+
+      - name: education_school_location
+        description: Uma localização por escola (código INEP), com a RA oficial por point-in-polygon.
+        columns:
+          - name: school_code
+            tests: [unique, not_null]
+
       - name: weather_daily
         description: Série diária de clima por RA (Open-Meteo/ERA5). Fonte NÃO governamental.
 

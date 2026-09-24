@@ -43,6 +43,12 @@ export interface RegionIndicators {
   health_facilities_hospital: number
   health_facilities_per_10k: number | null
 
+  education_reference_year: number | null
+  education_schools: number
+  education_schools_public: number
+  education_enrollment: number | null
+  education_enrollment_public_share_pct: number | null
+
   temp_mean_c: number | null
   temp_max_avg_c: number | null
   temp_min_avg_c: number | null
@@ -131,7 +137,7 @@ export interface HealthSummary {
 
 export interface Insight {
   insight_id: string
-  domain: 'population' | 'security' | 'health' | 'weather' | 'quality'
+  domain: 'population' | 'security' | 'health' | 'education' | 'weather' | 'quality'
   title: string
   finding: string
   value_numeric: number | null
@@ -169,10 +175,35 @@ export interface Coverage {
   security_months_with_data: number
   security_missing_years: number[]
   health_facilities: number
+  education_schools: number
+  education_years_with_enrollment: number
   weather_first_day: string | null
   weather_last_day: string | null
   weather_days: number
   has_all_domains: boolean
+}
+
+/** Série anual do Censo Escolar. `null` é lacuna publicada, nunca zero. */
+export interface EducationYear {
+  scope: 'RA' | 'DF'
+  region_id: string | null
+  region_name: string | null
+  census_year: number
+  is_year_complete: boolean
+  schools_total: number
+  schools_public: number
+  enrollment_total: number | null
+  enrollment_public: number | null
+  enrollment_public_share_pct: number | null
+  early_childhood: number | null
+  daycare: number | null
+  preschool: number | null
+  elementary: number | null
+  high_school_all: number | null
+  professional: number | null
+  youth_adult: number | null
+  special_total: number | null
+  source_id: string
 }
 
 export interface PipelineStatus {

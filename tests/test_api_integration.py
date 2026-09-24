@@ -179,3 +179,40 @@ def test_unknown_region_returns_404(client):
 def test_invalid_order_by_is_rejected(client):
     response = client.get("/api/indicators", params={"order_by": "1; drop table marts.dim_region"})
     assert response.status_code == 400
+
+
+# --------------------------------------------------------------------------- #
+# Educação — cada teste codifica um achado real dos arquivos da SEEDF
+# --------------------------------------------------------------------------- #
+def test_incomplete_enrollment_year_is_a_gap_not_a_drop(client):
+    """O arquivo de matrículas de 2023 cobre ~47% das escolas. Somado, fabricaria
+    uma queda de 38%. Ele precisa vir marcado e com matrícula nula."""
+    series = client.get("/api/education").json()
+    assert series, "série de educação do DF vazia"
+    for year in series:
+        assert year["schools_total"] > 0, "o cadastro de escolas é completo em todos os anos"
+        if not year["is_year_complete"]:
+            assert year["enrollment_total"] is None
+            assert year["early_childhood"] is None
+
+
+def test_enrollment_total_is_not_invented_when_source_omits_it(client):
+    """2024 não publica coluna de total; as etapas existem, o total não."""
+    by_year = {y["census_year"]: y for y in client.get("/api/education").json()}
+    if 2024 in by_year and by_year[2024]["is_year_complete"]:
+        assert by_year[2024]["enrollment_total"] is None
+        assert by_year[2024]["elementary"] is not None
+
+
+def test_high_school_series_survives_2025_reclassification(client):
+    """Em 2025 parte do EM virou EM integrado. Médio + integrado fica estável."""
+    by_year = {y["census_year"]: y for y in client.get("/api/education").json() if y["is_year_complete"]}
+    if {2024, 2025} <= set(by_year):
+        before, after = by_year[2024]["high_school_all"], by_year[2025]["high_school_all"]
+        assert abs(after - before) / before < 0.05
+
+
+def test_education_is_counted_in_every_region(client):
+    regions = client.get("/api/indicators").json()
+    with_schools = [r for r in regions if r["education_schools"] > 0]
+    assert len(with_schools) >= 33, "quase toda RA tem escola; menos que isso indica atribuição quebrada"

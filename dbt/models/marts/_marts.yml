@@ -192,7 +192,7 @@ models:
       - name: domain
         tests:
           - accepted_values:
-              values: ["population", "security", "health", "weather", "quality"]
+              values: ["population", "security", "health", "education", "weather", "quality"]
       - name: method
         description: Como o número foi calculado. Obrigatório — insight sem método não é publicado.
         tests: [not_null]
@@ -229,3 +229,52 @@ models:
         tests:
           - accepted_values:
               values: ["RUNNING", "SUCCESS", "FAILED"]
+
+  - name: fct_education_enrollment
+    description: >
+      Matrículas por escola × ano de censo (Educacenso/SEEDF), com a RA da
+      escola atribuída pela coordenada. Unicidade do grão em
+      `tests/assert_education_grain_is_unique.sql`.
+    columns:
+      - name: school_code
+        tests: [not_null]
+      - name: census_year
+        tests: [not_null]
+      - name: region_id
+        description: Nulo quando a escola não tem coordenada nem RA declarada coerente.
+        tests:
+          - relationships:
+              to: ref('dim_region')
+              field: region_id
+      - name: region_assignment
+        tests:
+          - accepted_values:
+              values: ["COORDINATE", "DECLARED_VERIFIED", "UNRESOLVED"]
+      - name: sector
+        tests:
+          - accepted_values:
+              values: ["PÚBLICA", "CONVENIADA", "PARTICULAR", "NÃO INFORMADO"]
+
+  - name: mart_education_coverage
+    description: Completude do arquivo de matrículas contra o cadastro, por ano e setor.
+    columns:
+      - name: coverage
+        tests: [not_null]
+
+  - name: mart_education_yearly
+    description: >
+      Escolas e matrículas por RA e ano, e do DF (`scope = 'DF'`, `region_id`
+      nulo). Anos incompletos têm matrícula nula, nunca zero.
+    columns:
+      - name: scope
+        tests:
+          - accepted_values:
+              values: ["RA", "DF"]
+      - name: region_id
+        tests:
+          - relationships:
+              to: ref('dim_region')
+              field: region_id
+      - name: schools_total
+        tests: [not_null]
+

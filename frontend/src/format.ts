@@ -72,6 +72,7 @@ export const DOMAIN_COLORS: Record<string, string> = {
   population: '#5EE6C5',
   security: '#FF6B81',
   health: '#4CC2FF',
+  education: '#C3E86B',
   weather: '#A98BFF',
   quality: '#F5A524',
 }
@@ -80,6 +81,7 @@ export const DOMAIN_LABELS: Record<string, string> = {
   population: 'População',
   security: 'Segurança',
   health: 'Saúde',
+  education: 'Educação',
   weather: 'Clima',
   quality: 'Qualidade dos dados',
 }

@@ -186,6 +186,47 @@ coverage_gap as (
     from {{ ref('mart_data_coverage') }}
 ),
 
+-- ---------------------------------------------------------------------------
+-- Educação
+-- ---------------------------------------------------------------------------
+education_df as (
+    select * from {{ ref('mart_education_yearly') }}
+    where scope = 'DF' and is_year_complete and enrollment_total is not null
+),
+
+education_span as (
+    select
+        first_year.census_year        as first_year,
+        last_year.census_year         as last_year,
+        first_year.enrollment_total   as first_total,
+        last_year.enrollment_total    as last_total,
+        first_year.early_childhood    as first_early,
+        last_year.early_childhood     as last_early,
+        last_year.enrollment_public_share_pct as last_public_share
+    from (select * from education_df order by census_year asc  limit 1) as first_year
+    cross join (select * from education_df order by census_year desc limit 1) as last_year
+    where first_year.census_year < last_year.census_year
+),
+
+education_year_coverage as (
+    select
+        census_year,
+        bool_and(is_complete)                                                   as is_complete,
+        sum(schools_in_enrollment_file)::numeric / nullif(sum(schools_in_registry), 0) as coverage
+    from {{ ref('mart_education_coverage') }}
+    group by census_year
+),
+
+education_gaps as (
+    select
+        string_agg(census_year::text, ', ' order by census_year)  as incomplete_years,
+        min(coverage)                                             as worst_coverage,
+        min(census_year)                                          as first_gap_year,
+        max(census_year)                                          as last_gap_year
+    from education_year_coverage
+    where not is_complete
+),
+
 insights as (
 
     select
@@ -391,6 +432,68 @@ insights as (
         'OPEN_METEO_ERA5',
         'Fonte não governamental: reanálise ERA5 interpolada, não medição de estação do INMET.'
     from weather_seasonality
+
+    union all
+
+    select
+        'EDU_ENROLLMENT_TREND',
+        'education',
+        'Matrículas na educação básica do DF',
+        format(
+            'Entre %s e %s, as matrículas de escolarização no DF, somando todas as redes, passaram de %s para %s — variação de %s%%. Na educação infantil (creche e pré-escola), o movimento foi de %s para %s (%s%%).',
+            first_year, last_year,
+            {{ br_int('first_total') }}, {{ br_int('last_total') }},
+            {{ br_decimal('100.0 * (last_total - first_total) / nullif(first_total, 0)', 1) }},
+            {{ br_int('first_early') }}, {{ br_int('last_early') }},
+            {{ br_decimal('100.0 * (last_early - first_early) / nullif(first_early, 0)', 1) }}
+        ),
+        round(100.0 * (last_total - first_total) / nullif(first_total, 0), 2),
+        '%',
+        first_year,
+        last_year,
+        'Soma do total de matrículas publicado pela SEEDF para cada escola, em anos cujo arquivo de matrículas cobre ao menos 95% das escolas do cadastro em todas as redes.',
+        'SEEDF_EDUCACENSO',
+        'A variação descreve matrículas registradas, não população em idade escolar. Anos com arquivo incompleto ou sem total publicado ficam fora da comparação.'
+    from education_span
+
+    union all
+
+    select
+        'EDU_PUBLIC_SHARE',
+        'education',
+        'Peso da rede pública',
+        format(
+            'Em %s, %s%% das matrículas de escolarização do DF estavam na rede pública (distrital e federal). O restante se divide entre escolas particulares e particulares conveniadas com o GDF.',
+            last_year, {{ br_decimal('last_public_share', 1) }}
+        ),
+        last_public_share,
+        '%',
+        last_year,
+        last_year,
+        'Matrículas em escolas das redes 1 (federal), 2 (SEEDF) e 5 (pública não vinculada à SEEDF) divididas pelo total de matrículas publicado.',
+        'SEEDF_EDUCACENSO',
+        'Escolas conveniadas são privadas com vagas custeadas pelo GDF — sobretudo creches — e não entram na rede pública aqui.'
+    from education_span
+
+    union all
+
+    select
+        'EDU_ENROLLMENT_FILE_GAP',
+        'quality',
+        'Arquivo de matrículas incompleto',
+        format(
+            'O arquivo de matrículas publicado pela SEEDF para %s cobre apenas %s%% das escolas do cadastro do mesmo ano. As matrículas desse ano não são exibidas: somá-las mostraria uma queda que não aconteceu.',
+            incomplete_years, {{ br_decimal('100.0 * worst_coverage', 0) }}
+        ),
+        round(100.0 * worst_coverage, 1),
+        '%',
+        first_gap_year,
+        last_gap_year,
+        'Fração das escolas do cadastro de unidades escolares presentes no arquivo de matrículas do mesmo ano, por rede. Abaixo de 95% o ano não é publicado.',
+        'SEEDF_EDUCACENSO',
+        'Ausência de dado não é ausência de aluno. O número de escolas continua disponível, porque o cadastro está completo.'
+    from education_gaps
+    where incomplete_years is not null
 
     union all
 

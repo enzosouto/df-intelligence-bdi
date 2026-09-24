@@ -21,12 +21,12 @@ import logging
 
 from collections import Counter
 
-from shapely.geometry import shape, Point
-from shapely.strtree import STRtree
+from shapely.geometry import Point
 
 from .common import (
     connect,
     get_json,
+    load_region_index,
     ingestion_run,
     PoliteSession,
     record_check,
@@ -55,20 +55,6 @@ MAX_PAGES = 400  # trava de segurança: 40.000 registros
 # Piloto), inflando a rede de saúde dessas regiões e esvaziando as demais.
 # Marcados como MISSING, eles caem na inferência por bairro.
 PLACEHOLDER_MIN_SHARED = 20
-
-
-def _load_region_index(conn):
-    """Índice espacial das RAs a partir de raw.region_geo."""
-    with conn.cursor() as cur:
-        cur.execute("SELECT ra_code, geometry FROM raw.region_geo")
-        records = cur.fetchall()
-    if not records:
-        raise RuntimeError(
-            "raw.region_geo está vazia — rode `python -m ingestion.regions` primeiro."
-        )
-    codes = [row[0] for row in records]
-    geometries = [shape(row[1]) for row in records]
-    return codes, geometries, STRtree(geometries)
 
 
 def _placeholder_coordinates(facilities: list[dict]) -> set[tuple[float, float]]:
@@ -127,7 +113,7 @@ def run() -> None:
     cfg = settings()
     session = PoliteSession(cfg.user_agent, cfg.throttle_seconds)
     conn = connect()
-    codes, geometries, tree = _load_region_index(conn)
+    codes, geometries, tree = load_region_index(conn)
 
     with ingestion_run(conn, "health") as (run_id, tracker):
         # --- Domínio: tipos de unidade --------------------------------------

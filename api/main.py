@@ -17,6 +17,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import db
 from .schemas import (
     Coverage,
+    EducationCoverage,
+    EducationYear,
     GeoJSONFeatureCollection,
     HealthFacility,
     HealthSummary,
@@ -37,7 +39,8 @@ Camada analítica sobre dados públicos do Distrito Federal.
 
 **Fontes**: IBGE (população e malha de subdistritos), IBRAM/ONDA-DF (limites das
 Regiões Administrativas), SSP-DF (balanço criminal mensal por RA), CNES/Ministério
-da Saúde (estabelecimentos de saúde) e Open-Meteo/ERA5 (clima).
+da Saúde (estabelecimentos de saúde), SEEDF/Educacenso (escolas e matrículas) e
+Open-Meteo/ERA5 (clima).
 
 ### Três coisas para saber antes de consumir
 
@@ -480,6 +483,46 @@ def get_health_facilities(
 
 
 # --------------------------------------------------------------------------- #
+# Educação
+# --------------------------------------------------------------------------- #
+@app.get(
+    "/api/education",
+    response_model=list[EducationYear],
+    tags=["Educação"],
+    summary="Escolas e matrículas por ano",
+)
+def get_education(
+    region_id: str | None = Query(None, description="Sem RA, devolve a série do DF inteiro."),
+) -> list[dict]:
+    """Série anual do Censo Escolar (todas as redes).
+
+    Matrícula é contada **onde a escola fica**, não onde o aluno mora. Anos com
+    arquivo de matrículas incompleto vêm com `is_year_complete = false` e
+    matrículas nulas — lacuna, não zero.
+    """
+    sql = """
+        select yearly.*, dim.region_name
+        from marts.mart_education_yearly as yearly
+        left join marts.dim_region as dim on dim.region_id = yearly.region_id
+        where {where}
+        order by yearly.census_year
+    """
+    if region_id:
+        return db.fetch_all(sql.format(where="yearly.scope = 'RA' and yearly.region_id = %s"), (region_id.upper(),))
+    return db.fetch_all(sql.format(where="yearly.scope = 'DF'"))
+
+
+@app.get(
+    "/api/education/coverage",
+    response_model=list[EducationCoverage],
+    tags=["Transparência"],
+    summary="Completude do arquivo de matrículas por ano e rede",
+)
+def get_education_coverage() -> list[dict]:
+    return db.fetch_all("select * from marts.mart_education_coverage order by census_year, sector")
+
+
+# --------------------------------------------------------------------------- #
 # Clima
 # --------------------------------------------------------------------------- #
 @app.get(
@@ -721,6 +764,26 @@ def _indicator_catalog() -> list[dict]:
             "source_id": "CNES_ESTABELECIMENTOS",
             "description": "Oferta instalada normalizada pela população do Censo 2022.",
             "caveat": "Oferta na região não equivale a acesso da população da região.",
+        },
+        {
+            "indicator_id": "education_schools",
+            "domain": "education",
+            "name": "Escolas",
+            "unit": "escolas",
+            "granularity": "Região Administrativa × ano",
+            "source_id": "SEEDF_EDUCACENSO",
+            "description": "Unidades escolares de todas as redes, localizadas na RA pela coordenada.",
+            "caveat": "A RA vem da coordenada, não do código declarado pela SEEDF (invertido nas RAs 34 e 35).",
+        },
+        {
+            "indicator_id": "education_enrollment",
+            "domain": "education",
+            "name": "Matrículas por etapa",
+            "unit": "matrículas",
+            "granularity": "Região Administrativa × ano",
+            "source_id": "SEEDF_EDUCACENSO",
+            "description": "Educação infantil, fundamental, médio (com integrado), profissional, EJA e especial.",
+            "caveat": "Contadas onde a escola fica, não onde o aluno mora. 2023 incompleto; 2024 sem total.",
         },
         {
             "indicator_id": "weather_temperature",

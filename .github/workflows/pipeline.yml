@@ -44,7 +44,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: pytest
-        run: pytest tests/test_security_parser.py tests/test_ingestion_units.py
+        run: pytest tests/test_security_parser.py tests/test_ingestion_units.py tests/test_education_parser.py
 
   frontend:
     name: Frontend (typecheck + build)
@@ -156,6 +156,18 @@ jobs:
             from meta.data_quality_check
             where checked_at > now() - interval '2 hours' and not passed
             order by severity;"
+          psql "$DATABASE_URL" -c "
+            select census_year, sector, schools_in_registry, schools_in_enrollment_file, coverage, is_complete
+            from marts.mart_education_coverage order by census_year, sector;" || true
+          psql "$DATABASE_URL" -c "
+            select census_year, is_year_complete, schools_total, enrollment_total, early_childhood,
+                   elementary, high_school_all, youth_adult, enrollment_public_share_pct
+            from marts.mart_education_yearly where scope = 'DF' order by census_year;" || true
+          psql "$DATABASE_URL" -c "
+            select region_assignment, count(*), count(*) filter (where coordinate_agrees_with_declaration) as agree,
+                   count(*) filter (where not coordinate_agrees_with_declaration) as disagree
+            from intermediate.int_education_school_region group by 1;" || true
+          psql "$DATABASE_URL" -c "select insight_id, left(finding, 220) from marts.mart_insights order by 1;" || true
 
       - name: Guardar artefatos do dbt
         if: always()

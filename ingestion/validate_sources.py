@@ -104,6 +104,19 @@ def check_open_meteo(session) -> str:
     return f"{len(daily['time'])} dias, última máx = {daily['temperature_2m_max'][-1]}°C"
 
 
+def check_seedf(session) -> str:
+    counts = []
+    for dataset in (
+        "relacao-de-unidades-escolares-abrangendo-todas-as-redes-de-ensino-do-distrito-federal",
+        "quantidade-de-matriculas-das-modalidades-de-ensino-abrangendo-todas-as-redes-de-ensino-do-df",
+    ):
+        package = get_json(session, f"https://data.se.df.gov.br/api/3/action/package_show?id={dataset}")
+        csvs = [r for r in package["result"]["resources"] if (r.get("format") or "").upper() == "CSV"]
+        assert len(csvs) >= 10, f"{dataset}: apenas {len(csvs)} CSVs"
+        counts.append(len(csvs))
+    return f"{counts[0]} CSVs de escolas, {counts[1]} de matrículas"
+
+
 CHECKS = {
     "Regiões Administrativas (IBRAM/ONDA-DF)": check_regions,
     "Subdistritos (IBGE Localidades)": check_ibge_subdistricts,
@@ -112,6 +125,7 @@ CHECKS = {
     "Balanço Criminal (SSP-DF)": check_ssp,
     "Estabelecimentos de saúde (CNES)": check_cnes,
     "Clima histórico (Open-Meteo/ERA5)": check_open_meteo,
+    "Escolas e matrículas (SEEDF/Educacenso)": check_seedf,
 }
 
 

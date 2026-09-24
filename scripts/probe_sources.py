@@ -1,59 +1,74 @@
-"""Sonda TEMPORÁRIA de fontes candidatas (educação/mobilidade). Não faz parte do produto."""
-import json, sys, requests
+"""Sonda TEMPORÁRIA de fontes candidatas (educação). Não faz parte do produto."""
+import csv, io, json, sys, collections, requests
 
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 DFIntelligence/probe"}
 s = requests.Session(); s.headers.update(UA)
-
-def get(url, **kw):
-    try:
-        r = s.get(url, timeout=(15, 40), **kw)
-        return r
-    except Exception as e:
-        print(f"  !! {url}: {type(e).__name__}: {e}"); return None
+BASE = "https://data.se.df.gov.br"
 
 def section(t): print("\n" + "=" * 100 + f"\n{t}\n" + "=" * 100, flush=True)
 
-def ckan(base, queries):
-    section(f"CKAN {base}")
-    r = get(f"{base}/api/3/action/package_list")
-    if r is not None:
-        print("package_list", r.status_code, r.headers.get("content-type"))
-        try: print(json.dumps(r.json()["result"], ensure_ascii=False))
-        except Exception: print(r.text[:500])
-    for q in queries:
-        r = get(f"{base}/api/3/action/package_search", params={"q": q, "rows": 40})
-        if r is None: continue
-        try: res = r.json()["result"]
-        except Exception: print(q, r.status_code, r.text[:300]); continue
-        print(f"\n--- q={q!r}: {res['count']} datasets")
-        for p in res["results"]:
-            print(f"* {p['name']} | {p.get('title')} | modified={p.get('metadata_modified','')[:10]}")
-            for rs in p.get("resources", [])[:12]:
-                print(f"    - [{rs.get('format')}] {rs.get('name')} -> {rs.get('url')}")
+def resources(pkg):
+    r = s.get(f"{BASE}/api/3/action/package_show", params={"id": pkg}, timeout=(15, 60)).json()["result"]
+    print(f"# {r['title']} | license={r.get('license_title')} | org={r.get('organization',{}).get('title')}")
+    print("  notes:", (r.get("notes") or "")[:600].replace("\n", " "))
+    for rs in r["resources"]:
+        print(f"  - [{rs.get('format')}] {rs.get('name')} size={rs.get('size')} -> {rs['url']}")
+    return r["resources"]
 
-def arcgis(base):
-    section(f"ArcGIS {base}")
-    r = get(f"{base}?f=json")
-    if r is None: return
-    try: root = r.json()
-    except Exception: print(r.status_code, r.text[:300]); return
-    print("folders:", root.get("folders")); print("services:", [x["name"] for x in root.get("services", [])])
-    for f in root.get("folders", []):
-        rr = get(f"{base}/{f}?f=json")
-        try: print(f"  {f}:", [x["name"] + ":" + x["type"] for x in rr.json().get("services", [])])
-        except Exception: pass
+def fetch(url):
+    r = s.get(url, timeout=(15, 120)); print(f"  GET {r.status_code} {r.headers.get('content-type')} {len(r.content)} bytes")
+    return r.content
 
-def head(url):
-    try:
-        r = s.head(url, timeout=(15, 40), allow_redirects=True)
-        print(f"HEAD {r.status_code} {r.headers.get('content-type')} len={r.headers.get('content-length')} {url}")
-    except Exception as e: print(f"HEAD !! {url}: {e}")
+def decode(raw):
+    for enc in ("utf-8-sig", "cp1252", "latin-1"):
+        try: return raw.decode(enc), enc
+        except UnicodeDecodeError: pass
 
-TARGETS = {
-    "seedf": lambda: ckan("https://data.se.df.gov.br", ["escola", "censo escolar", "matricula", "unidades escolares", "localizacao"]),
-    "dadosdf": lambda: ckan("https://dados.df.gov.br", ["escola", "onibus", "gtfs", "transporte", "parada", "metro", "linhas"]),
-    "onda": lambda: arcgis("https://onda.ibram.df.gov.br/server/rest/services"),
-    "sisdia": lambda: arcgis("https://sisdia.df.gov.br/server/rest/services"),
-    "inep": lambda: [head(f"https://download.inep.gov.br/dados_abertos/microdados_censo_escolar_{y}.zip") for y in (2023, 2024, 2025)],
-}
-TARGETS[sys.argv[1]]()
+def show_csv(url, full=False):
+    raw = fetch(url); text, enc = decode(raw)
+    sample = text[:5000]
+    delim = max(";,\t|", key=sample.count)
+    rows = list(csv.reader(io.StringIO(text), delimiter=delim))
+    print(f"  encoding={enc} delim={delim!r} rows={len(rows)}")
+    header = rows[0]; print("  HEADER:", header)
+    for row in rows[1:4]: print("  ROW:", row)
+    if full:
+        for i, col in enumerate(header):
+            vals = collections.Counter(r[i] for r in rows[1:] if len(r) > i)
+            print(f"   col {col!r}: {len(vals)} distintos; top={vals.most_common(8)}")
+    return header, rows
+
+def show_geojson(url):
+    raw = fetch(url); d = json.loads(decode(raw)[0])
+    feats = d.get("features", [])
+    print(f"  features={len(feats)} crs={d.get('crs')}")
+    for f in feats[:2]: print("  FEATURE:", json.dumps(f, ensure_ascii=False)[:1500])
+    nogeo = sum(1 for f in feats if not f.get("geometry"))
+    print(f"  sem geometria: {nogeo}")
+
+def pick(res, *needles, fmt=None):
+    for rs in res:
+        name = (rs.get("name") or "") + " " + rs["url"]
+        if all(n.lower() in name.lower() for n in needles) and (fmt is None or (rs.get("format") or "").upper() == fmt):
+            return rs["url"]
+
+target = sys.argv[1]
+if target == "escolas":
+    section("UNIDADES ESCOLARES")
+    res = resources("relacao-de-unidades-escolares-abrangendo-todas-as-redes-de-ensino-do-distrito-federal")
+    show_csv(pick(res, "dicionario"), full=False)
+    show_csv(pick(res, "2025", fmt="CSV"), full=True)
+    show_csv(pick(res, "2014", fmt="CSV"))
+elif target == "matriculas":
+    section("MATRÍCULAS")
+    res = resources("quantidade-de-matriculas-das-modalidades-de-ensino-abrangendo-todas-as-redes-de-ensino-do-df")
+    show_csv(pick(res, "dicionario"))
+    show_csv(pick(res, "2025", fmt="CSV"), full=True)
+    g = pick(res, "2025", fmt="GEOJSON")
+    if g: show_geojson(g)
+elif target == "docentes":
+    section("DOCENTES + INFRA")
+    res = resources("total-de-docentes-abrangendo-todas-as-redes-de-ensino-do-df")
+    show_csv(pick(res, "2025", fmt="CSV"))
+    res = resources("dados-de-infraestrutura-abrangendo-todas-as-redes-de-ensino-df")
+    show_csv(pick(res, "2025", fmt="CSV"))

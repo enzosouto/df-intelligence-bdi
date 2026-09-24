@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [seedf, dadosdf, onda, sisdia, inep]
+        target: [escolas, matriculas, docentes]
     steps:
       - uses: actions/checkout@v4
       - run: pip install -q requests && timeout 300 python -u scripts/probe_sources.py ${{ matrix.target }}

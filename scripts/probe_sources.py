@@ -1,77 +1,85 @@
-"""Sonda TEMPORÁRIA de fontes de mobilidade. Não faz parte do produto."""
-import json, re, sys, requests
-s = requests.Session()
-s.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 DFIntelligence/probe"
+"""Sonda TEMPORÁRIA: qualidade da malha cicloviária e estações (IDE-DF)."""
+import collections, json, sys
+import requests
+from pyproj import Geod
+from shapely.geometry import shape, Point
+from shapely.strtree import STRtree
+sys.path.insert(0, ".")
+from ingestion.education import norm
 
-def get(url, **kw):
-    try:
-        r = s.get(url, timeout=(30, 90), **kw)
-        print(f"GET {r.status_code} {r.headers.get('content-type')} {len(r.content)}B {url[:160]}", flush=True)
-        return r
-    except Exception as e:
-        print(f"GET !! {url[:160]} {type(e).__name__}: {str(e)[:200]}", flush=True)
+GEOD = Geod(ellps="WGS84")
+s = requests.Session(); s.headers["User-Agent"] = "Mozilla/5.0 DFIntelligence/probe"
+BASE = "https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer"
+RA_URL = ("https://onda.ibram.df.gov.br/server/rest/services/Territorio/Regioes_Administrativas_DF_2025/"
+          "MapServer/0/query?where=1%3D1&outFields=ra_codigo,ra_nome&outSR=4326&f=geojson")
 
-def section(t): print("\n" + "=" * 90 + f"\n{t}\n" + "=" * 90, flush=True)
+def all_features(layer):
+    feats, offset = [], 0
+    while True:
+        r = s.get(f"{BASE}/{layer}/query", params={"where": "1=1", "outFields": "*", "outSR": 4326, "f": "geojson",
+                  "orderByFields": "objectid", "resultOffset": offset, "resultRecordCount": 1000}, timeout=120)
+        batch = r.json().get("features", [])
+        feats += batch
+        print(f"  layer {layer} offset {offset}: +{len(batch)} (exceeded={r.json().get('exceededTransferLimit') or r.json().get('properties')})")
+        if len(batch) < 1000: return feats
+        offset += 1000
 
-t = sys.argv[1]
-if t == "semob":
-    section("SEMOB GeoServer WFS")
-    base = "https://geoserver.semob.df.gov.br/geoserver/semob/ows"
-    r = get(base, params={"service": "WFS", "version": "1.1.0", "request": "GetCapabilities"})
-    if r is not None and r.ok:
-        names = re.findall(r"<Name>([^<]+)</Name>", r.text)
-        titles = re.findall(r"<Title>([^<]+)</Title>", r.text)
-        print("layers:", names[:80]); print("titles:", titles[:80])
-        for name in names:
-            if any(k in name.lower() for k in ("parada", "linha", "terminal", "metro", "estac", "ciclo", "brt")):
-                rr = get(base, params={"service": "WFS", "version": "1.0.0", "request": "GetFeature", "typeName": name,
-                                       "outputFormat": "application/json", "maxFeatures": 2})
-                if rr is not None and rr.ok:
-                    try:
-                        d = rr.json(); print(f"  {name}: totalFeatures={d.get('totalFeatures')} crs={d.get('crs')}")
-                        for f in d.get("features", [])[:2]: print("   ", json.dumps(f, ensure_ascii=False)[:700])
-                    except Exception as e: print("  não-JSON:", rr.text[:300])
-    for u in ("https://www.semob.df.gov.br/pontos-de-parada", "https://www.semob.df.gov.br/plano-de-dados-abertos-pda/"):
-        r = get(u)
-        if r is not None and r.ok:
-            links = sorted(set(re.findall(r'href="([^"]+)"', r.text)))
-            print("  links úteis:", [l for l in links if any(k in l.lower() for k in ("gtfs", ".zip", ".csv", "geoserver", "geomobi", "dados", "json", "wfs"))][:40])
-elif t == "idedf":
-    section("IDE-DF")
-    for u in ("https://www.geoservicos.ide.df.gov.br/arcgis/rest/services?f=json",
-              "https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer?f=json"):
-        r = get(u)
-        if r is not None and r.ok:
-            try:
-                d = r.json()
-                print("  folders:", d.get("folders")); print("  services:", [x.get("name") for x in d.get("services", [])][:60])
-                print("  layers:", [(l["id"], l["name"]) for l in d.get("layers", [])][:400])
-            except Exception: print(r.text[:300])
-elif t == "layers":
-    section("IDE-DF camadas de mobilidade")
-    base = "https://www.geoservicos.ide.df.gov.br/arcgis/rest/services/Publico/IDEDF/FeatureServer"
-    for lid in (218, 140, 141, 127, 162, 131):
-        r = get(f"{base}/{lid}?f=json")
-        if r is None or not r.ok: continue
-        meta = r.json()
-        print(f"\n## {lid} {meta.get('name')} | geom={meta.get('geometryType')} | maxRecord={meta.get('maxRecordCount')} | srid={meta.get('extent',{}).get('spatialReference')}")
-        print("  editingInfo:", meta.get("editingInfo"), "| description:", (meta.get("description") or "")[:300])
-        print("  fields:", [(f["name"], f["type"].replace("esriFieldType", "")) for f in meta.get("fields", [])])
-        c = get(f"{base}/{lid}/query", params={"where": "1=1", "returnCountOnly": "true", "f": "json"})
-        if c is not None and c.ok: print("  count:", c.json())
-        q = get(f"{base}/{lid}/query", params={"where": "1=1", "outFields": "*", "resultRecordCount": 3, "outSR": 4326, "f": "geojson"})
-        if q is not None and q.ok:
-            for f in q.json().get("features", [])[:3]:
-                g = f.get("geometry") or {}
-                print("  props:", json.dumps(f.get("properties"), ensure_ascii=False)[:500], "| geom:", g.get("type"), str(g.get("coordinates"))[:120])
-elif t == "detran":
-    section("DETRAN-DF")
-    for u in ("https://www.dados.df.gov.br/dataset/acidentes-de-transito-nas-vias-urbanas-do-distrito-federal-nos-ultimos-10-anos-com-vitimas-fatais",
-              "https://www.dados.df.gov.br/organization/departamento-de-transito-do-distrito-federal-detran-df",
-              "https://www.detran.df.gov.br/dados-anuais/",
-              "https://www.detran.df.gov.br/plano-de-dados-abertos/"):
-        r = get(u)
-        if r is not None and r.ok:
-            links = sorted(set(re.findall(r'href="([^"]+)"', r.text)))
-            print("  links:", [l for l in links if any(k in l.lower() for k in (".csv", ".xls", ".zip", "download", "resource", "dataset/", ".json", "acident", "sinistr"))][:60])
-            print("  trecho:", re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text))[:600])
+ras = s.get(RA_URL, timeout=120).json()["features"]
+print("RAs:", len(ras), "exemplo props:", ras[0]["properties"])
+geoms = [shape(f["geometry"]) for f in ras]
+names = [norm(f["properties"]["ra_nome"]) for f in ras]
+tree = STRtree(geoms)
+
+bikes = all_features(218)
+ids = [f["properties"]["objectid"] for f in bikes]
+print("\nciclovia: trechos", len(bikes), "ids únicos", len(set(ids)))
+declared_total = sum(f["properties"]["cvia_km"] or 0 for f in bikes)
+geo_total, clipped_total = 0.0, 0.0
+agree = disagree = crossing = no_geom = 0
+by_ra_declared = collections.Counter(); by_ra_geo = collections.Counter()
+ratio_bad = []
+years = collections.Counter(); typ = collections.Counter(); tipo_via = collections.Counter()
+declared_names = collections.Counter()
+for f in bikes:
+    p = f["properties"]
+    years[p["cvia_ano_construcao"]] += 1; typ[p["cvia_tipologia"]] += 1; tipo_via[p["cvia_tipo_via"]] += 1
+    declared_names[norm(p["cvia_ra"] or "")] += 1
+    if not f.get("geometry"): no_geom += 1; continue
+    g = shape(f["geometry"])
+    length = GEOD.geometry_length(g) / 1000
+    geo_total += length
+    if p["cvia_km"] and length and not (0.8 <= length / p["cvia_km"] <= 1.25): ratio_bad.append((p["objectid"], p["cvia_km"], round(length, 3)))
+    pieces = {}
+    for i in tree.query(g):
+        inter = g.intersection(geoms[i])
+        if not inter.is_empty:
+            km = GEOD.geometry_length(inter) / 1000
+            if km > 0.001: pieces[names[i]] = km
+    clipped_total += sum(pieces.values())
+    if len(pieces) > 1: crossing += 1
+    for n, km in pieces.items(): by_ra_geo[n] += km
+    main = max(pieces, key=pieces.get) if pieces else None
+    by_ra_declared[norm(p["cvia_ra"] or "")] += p["cvia_km"] or 0
+    if main == norm(p["cvia_ra"] or ""): agree += 1
+    else: disagree += 1
+print(f"km declarado {declared_total:.1f} | km geodésico {geo_total:.1f} | km recortado nas RAs {clipped_total:.1f} | sem geometria {no_geom}")
+print(f"RA declarada = RA majoritária da geometria: {agree} concordam, {disagree} discordam | trechos que cruzam divisa: {crossing}")
+print(f"trechos com km declarado fora de [0,8x ; 1,25x] do geométrico: {len(ratio_bad)} ex {ratio_bad[:8]}")
+print("anos:", sorted(years.items(), key=lambda kv: str(kv[0])))
+print("tipologia:", typ.most_common()); print("tipo_via:", tipo_via.most_common())
+print("nomes de RA declarados não reconhecidos:", {k: v for k, v in declared_names.items() if k not in names})
+print("\nkm por RA  declarado vs geométrico (top 40):")
+for n in sorted(set(by_ra_declared) | set(by_ra_geo), key=lambda k: -by_ra_geo.get(k, 0))[:40]:
+    print(f"  {n:28} decl {by_ra_declared.get(n, 0):8.1f}  geo {by_ra_geo.get(n, 0):8.1f}")
+
+for layer in (140, 127):
+    feats = all_features(layer)
+    print(f"\nlayer {layer}: {len(feats)} pontos")
+    c = collections.Counter()
+    for f in feats:
+        p = f["properties"]; g = shape(f["geometry"])
+        ra = next((names[i] for i in tree.query(g) if geoms[i].covers(g)), "FORA")
+        key = tuple(v for k, v in p.items() if k.endswith(("situacao", "tipo")))
+        c[key] += 1
+        print("  ", ra, "|", json.dumps({k: v for k, v in p.items() if k != "objectid"}, ensure_ascii=False))
+    print("  situação/tipo:", c.most_common())

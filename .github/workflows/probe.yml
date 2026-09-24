@@ -6,11 +6,9 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [semob, layers, detran]
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - run: pip install -q requests && timeout 300 python -u scripts/probe_sources.py ${{ matrix.target }}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: pip install -q -r requirements.txt && python -u scripts/probe_sources.py

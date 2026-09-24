@@ -75,6 +75,22 @@ def by_year(res, fmt="CSV"):
                 out[y] = rs["url"]
     return dict(sorted(out.items()))
 
+import unicodedata
+def norm(c):
+    c = unicodedata.normalize("NFKD", c).encode("ascii", "ignore").decode().upper()
+    return " ".join(c.replace("/", " ").split())
+
+def table(url):
+    text, enc = decode(s.get(url, timeout=(15, 300)).content)
+    rows = list(csv.reader(io.StringIO(text), delimiter=","))
+    h = next(i for i, r in enumerate(rows[:5]) if any(norm(c) in ("NU_ANO_CENSO", "ANO DO CENSO") for c in r))
+    return [norm(c) for c in rows[h]], rows[h + 1:]
+
+def num(v):
+    v = (v or "").strip()
+    if v in ("", "NUL.L"): return None
+    return int(v.replace(",", "").replace(".", ""))
+
 target = sys.argv[1]
 if target == "escolas_all":
     res = resources("relacao-de-unidades-escolares-abrangendo-todas-as-redes-de-ensino-do-distrito-federal")
@@ -94,6 +110,53 @@ if target == "escolas_all":
         if rede_i is not None:
             print("  REDE:", collections.Counter(r[rede_i] for r in rows[hdr_idx + 1:] if len(r) > rede_i))
         print("  linhas de dados:", len(rows) - hdr_idx - 1)
+elif target == "reconcile":
+    res = resources("quantidade-de-matriculas-das-modalidades-de-ensino-abrangendo-todas-as-redes-de-ensino-do-df")
+    for y, url in by_year(res).items():
+        hdr, rows = table(url)
+        def col(*cands):
+            for c in cands:
+                if c in hdr: return hdr.index(c)
+        idx = {
+          "total": col("MATRICULA", "TOTAL GERAL (MATRICULAS DE ESCOLARIZACAO)"),
+          "ei": col("MAT_EI_TOTAL", "EDUCACAO INFANTIL - TOTAL"),
+          "creche": col("MAT_CRECHE", "EDUCACAO INFANTIL - CRECHE"),
+          "pre": col("MAT_PRE", "EDUCACAO INFANTIL - PRE-ESCOLA"),
+          "ef": col("ESC_EF_TOTAL", "MAT_EF_TOTAL", "ENSINO FUNDAMENTAL - TOTAL"),
+          "em": col("MAT_EM_TOTAL", "ENSINO MEDIO - TOTAL (EM EMM)", "ENSINO MEDIO - TOTAL"),
+          "ep": col("MAT_EP_TOTAL", "EDUCACAO PROFISSIONAL - TOTAL (EMI CT FIC EJAI EAD)"),
+          "emi": col("MAT_EMI", "ENSINO MEDIO INTEGRADO (EMI) - TOTAL"),
+          "eja": col("MAT_EJA_TOTAL", "EJA - TOTAL ( EF EM EAD )"),
+          "ee": col("MAT_EE_TOTAL", "EDUCACAO ESPECIAL - TOTAL"),
+          "ee_ce": col("MAT_EE_CE", "EDUCACAO ESPECIAL - CLASSE EXCLUSIVA"),
+          "school": col("CO_ENTIDADE", "CODIGO INEP"),
+        }
+        tot = collections.Counter(); blanks = collections.Counter()
+        for r in rows:
+            for k, i in idx.items():
+                if i is None or k == "school": continue
+                v = num(r[i]) if i < len(r) else None
+                if v is None: blanks[k] += 1
+                else: tot[k] += v
+        schools = len({r[idx["school"]] for r in rows})
+        print(f"{y} rows={len(rows)} schools={schools} missing_cols={[k for k,i in idx.items() if i is None]}")
+        print(f"   sums={dict(tot)}")
+        print(f"   blanks={dict(blanks)}")
+        for label, parts in {"ei+ef+em+ep+eja": ["ei","ef","em","ep","eja"], "ei+ef+em+emi+eja": ["ei","ef","em","emi","eja"],
+                             "ei+ef+em+ep+eja+ee_ce": ["ei","ef","em","ep","eja","ee_ce"], "creche+pre+ef+em+ep+eja": ["creche","pre","ef","em","ep","eja"]}.items():
+            print(f"   {label:28} = {sum(tot[p] for p in parts):>9}  vs total {tot['total']:>9}  diff={sum(tot[p] for p in parts)-tot['total']}")
+elif target == "ra3435":
+    res = resources("relacao-de-unidades-escolares-abrangendo-todas-as-redes-de-ensino-do-distrito-federal")
+    for y, url in by_year(res).items():
+        if y < 2023: continue
+        hdr, rows = table(url)
+        def col(*c): return next((hdr.index(x) for x in c if x in hdr), None)
+        ra, nm, sc, en = col("CO_RA", "RA"), col("NO_RA", "NOME RA"), col("CO_ENTIDADE"), col("NO_ENTIDADE", "NOME DA ESCOLA")
+        la, lo, ba = col("NU_LATITUDE"), col("NU_LONGITUDE"), col("NO_BAIRRO")
+        print(f"\n## {y} cols ok: ra={ra} nm={nm} sc={sc} en={en} lat={la}")
+        for r in rows:
+            if r[ra].strip() in ("34", "35", "6", "15") and (r[ra].strip() in ("34","35") or any(k in (r[en] or "").upper() for k in ("ARAPOANGA","AGUA QUENTE","ÁGUA QUENTE"))):
+                print("  ", r[ra], r[nm], r[sc], r[en], r[la] if la is not None else "", r[lo] if lo is not None else "", r[ba] if ba is not None else "")
 elif target == "matriculas_all":
     res = resources("quantidade-de-matriculas-das-modalidades-de-ensino-abrangendo-todas-as-redes-de-ensino-do-df")
     for y, url in by_year(res).items():

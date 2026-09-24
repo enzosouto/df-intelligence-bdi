@@ -173,6 +173,96 @@ em células de 0,1° (22 células para 35 RAs) e cada célula é consultada uma 
 RAs na mesma célula recebem série idêntica — que é o que a fonte tem a dizer —
 e `regions_sharing_cell` declara isso na API e na interface.
 
+### 2.13 O esquema do Educacenso muda de ano para ano
+
+Nos arquivos da SEEDF (`data.se.df.gov.br`), a mesma informação troca de nome:
+`CO_RA` → `RA`, `CO_ENTIDADE` → `Código INEP`, `ESC_EF_TOTAL` (até 2019) →
+`MAT_EF_TOTAL` → `Ensino fundamental - TOTAL` (2025), `NU_LATITUDE` →
+`LATITUDE` (2019). O arquivo de 2025 ainda traz uma **linha-banner acima do
+cabeçalho** ("EXTRAÍDO DO MICRODADOS DE MATRÍCULAS PUBLICADO").
+
+**Tratamento:** toda coluna é localizada pelo nome normalizado (sem acento,
+maiúsculo, `/` como espaço), com lista de apelidos por campo. O cabeçalho é a
+primeira linha que contém a coluna de ano. O ano vem de `NU_ANO_CENSO`, nunca
+do nome do recurso no CKAN. Coluna obrigatória ausente derruba a ingestão com a
+lista do que sumiu.
+
+### 2.14 Milhar dentro de CSV separado por vírgula
+
+Em 2025, `BAS = "2,657"` para o Colégio Militar: são 2.657 matrículas, não
+2,657. Em 2014, o marcador de nulo é o texto `NUL.L`.
+
+**Tratamento:** `parse_count` aceita só inteiro puro ou milhar bem formado
+(`\d{1,3}([.,]\d{3})+`). Qualquer outra coisa (`12.5`, `1,2`) **levanta
+erro** — adivinhar entre decimal e milhar foi o que fez `12.0` virar `120` no
+parser da SSP (2.3). `NUL.L` e vazio viram `NULL`.
+
+### 2.15 Os códigos de RA 34 e 35 da SEEDF estão invertidos
+
+Pela numeração oficial, RA XXXIV é Arapoanga e RA XXXV é Água Quente. Na
+SEEDF, as mesmas escolas aparecem sempre sob o mesmo código, mas:
+
+| Escola (INEP) | Coordenada | 2023 | 2024 | 2025 |
+|---|---|---|---|---|
+| EC 01 DO ARAPOANGA (53047028) | −15,640 / −47,636 | 35 ARAPOANGA | 35 ARAPOANGA | 35 **AGUA QUENTE** |
+| EC DE AGUA QUENTE (53020154) | −15,947 / −48,228 | — | 34 AGUA QUENTE | 34 **ARAPOANGA** |
+
+O código está invertido em todos os anos; o nome passou a vir invertido em 2025.
+
+**Tratamento:** a RA de cada escola vem da **coordenada**, por
+point-in-polygon contra a malha oficial (a mesma técnica da saúde). A
+coordenada mais recente do código INEP vale para todos os anos — o arquivo de
+2025 não traz coordenada. Sem coordenada, a RA declarada só é aceita se código
+**e** nome apontam para a mesma RA; senão a escola fica `UNRESOLVED`. Teste de
+regressão com as duas escolas acima:
+`assert_education_ra_34_35_follow_coordinates`.
+
+Efeito colateral útil: como a escola é um ponto, a série por RA fica em
+**território constante** (malha de 2025), inclusive para anos anteriores à
+criação de Sol Nascente, Arniqueira, Arapoanga e Água Quente — o oposto da
+população por RA (2.10).
+
+### 2.16 O arquivo de matrículas de 2023 está incompleto
+
+| Ano | Escolas no arquivo | Matrículas | Creche |
+|---|---|---|---|
+| 2022 | 1.154 | 619.635 | 32.972 |
+| **2023** | **600** | **385.801** | **177** |
+| 2025 | 1.332 | 620.297 | 42.582 |
+
+O cadastro de escolas de 2023 tem 1.264 unidades. Somado ingenuamente, o
+arquivo fabricaria uma queda de 38% nas matrículas do DF.
+
+**Tratamento:** sem exceção escrita à mão. `mart_education_coverage` mede,
+para todo ano e rede, a fração das escolas do cadastro presentes no arquivo de
+matrículas. Abaixo de 95%, as matrículas do ano saem nulas e a linha do gráfico
+quebra. O número de escolas continua publicado, porque o cadastro é completo.
+
+### 2.17 2024 não publica o total de matrículas
+
+O arquivo de 2024 tem 63 colunas: as etapas estão lá, a coluna de total não.
+
+**Tratamento:** o total fica `NULL`. A soma das etapas **não** o substitui,
+porque a identidade `creche + pré + fundamental + médio + profissional + EJA +
+especial exclusiva = total` só fecha exatamente em 2023 e 2025; de 2014 a 2022
+as etapas somam entre 99,6% e 99,96% do total. Essa folga medida virou teste
+(`assert_education_stages_reconcile_with_total`).
+
+### 2.18 O ensino médio "cai" 11% em 2025 por reclassificação
+
+`EM` passa de 100.541 (2024) para 89.098 (2025), enquanto o Ensino Médio
+Integrado sobe de 3.928 para 15.917. Médio + integrado: 104.469 → 105.015.
+
+**Tratamento:** o indicador publicado é `high_school_all` (médio + integrado).
+Teste de integração verifica que a série não varia mais de 5% entre 2024 e
+2025.
+
+### 2.19 O INEP não entrega os microdados para fora
+
+`download.inep.gov.br` responde com cadeia TLS incompleta e reset de conexão a
+partir dos runners do GitHub. A SEEDF republica o mesmo Censo Escolar recortado
+para o DF, com a RA — por isso é a fonte usada.
+
 ---
 
 ## 3. Testes do dbt
@@ -258,6 +348,7 @@ na API (`caveat` em `/api/sources` e `/api/insights`) e na interface.
 | Taxas usam população residente | RAs com muito fluxo diário de não residentes (SIA, Plano Piloto) têm taxa inflada: o denominador conta só quem mora. |
 | Denominador é sempre o Censo 2022 | Taxas de anos distantes de 2022 carregam esse denominador. `population_reference_year` acompanha o número. |
 | CNES mede infraestrutura, não produção | "46 estabelecimentos" não diz quantos atendimentos foram feitos. |
+| Matrícula é contada onde a escola fica | Não mede a escolarização dos moradores da RA. Por isso não há taxa de matrícula por habitante. |
 | Oferta instalada ≠ acesso | Moradores se deslocam entre RAs para se tratar. |
 | Clima é reanálise, não medição | Open-Meteo/ERA5 é fonte externa e não governamental, com resolução mais grossa que uma RA. |
 | População por RA só existe em 2010 e 2022 | Não há série anual por Região Administrativa. |

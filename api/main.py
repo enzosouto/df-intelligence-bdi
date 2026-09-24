@@ -380,37 +380,17 @@ def get_security_summary(
     varia entre RAs e anos, então o total do DF reflete quem publicou naquele
     mês. Use `/api/coverage` para saber quem está faltando.
     """
-    conditions: list[str] = []
+    # Nenhum cálculo aqui: a série da RA e a do DF vêm prontas do dbt.
     params: list = []
     if region_id:
-        conditions.append("region_id = %s")
+        sql = "select * from marts.mart_security_region_monthly where region_id = %s"
         params.append(region_id.upper())
+    else:
+        sql = "select * from marts.mart_security_df_monthly where true"
     if year_from:
-        conditions.append("reference_year >= %s")
+        sql += " and reference_year >= %s"
         params.append(year_from)
-    where = f"where {' and '.join(conditions)}" if conditions else ""
-
-    return db.fetch_all(
-        f"""
-        select
-            coalesce(%s, 'DF')            as region_id,
-            null::text                    as region_name,
-            reference_month_start,
-            reference_year,
-            reference_month,
-            category_code,
-            max(category_name)            as category_name,
-            max(metric_type)              as metric_type,
-            sum(occurrences)::int         as occurrences,
-            sum(violent_occurrences)::int as violent_occurrences,
-            null::numeric                 as occurrences_per_10k
-        from marts.mart_security_region_monthly
-        {where}
-        group by reference_month_start, reference_year, reference_month, category_code
-        order by reference_month_start, category_code
-        """,
-        [region_id.upper() if region_id else None, *params],
-    )
+    return db.fetch_all(sql + " order by reference_month_start, category_code", params)
 
 
 # --------------------------------------------------------------------------- #
@@ -435,9 +415,7 @@ def get_health(region_id: str | None = Query(None)) -> list[dict]:
             summary.facilities_hospital, summary.facilities_ambulatory, summary.facilities_support, summary.facilities_nonprofit, summary.facilities_urgent_care, summary.facilities_diagnostics,
             summary.facilities_with_surgery_center, summary.facilities_with_obstetric_center,
             summary.assigned_by_coordinates, summary.assigned_by_neighborhood,
-            case when dim.population_2022 > 0
-                 then round(10000.0 * summary.facilities_total / dim.population_2022, 2)
-            end as facilities_per_10k
+            summary.facilities_per_10k
         from marts.mart_health_region as summary
         left join marts.dim_region as dim on dim.region_id = summary.region_id
         {where}
@@ -649,28 +627,7 @@ def get_weather_summary(year_from: int | None = Query(None)) -> list[dict]:
     where = "where reference_year >= %s" if year_from else ""
     params = [year_from] if year_from else []
     return db.fetch_all(
-        f"""
-        select
-            'DF'                                  as region_id,
-            reference_year,
-            reference_month,
-            reference_month_start,
-            round(avg(days_observed))::int        as days_observed,
-            round(avg(temp_mean_c), 1)            as temp_mean_c,
-            round(avg(temp_max_avg_c), 1)         as temp_max_avg_c,
-            round(avg(temp_min_avg_c), 1)         as temp_min_avg_c,
-            round(max(temp_max_absolute_c), 1)    as temp_max_absolute_c,
-            round(min(temp_min_absolute_c), 1)    as temp_min_absolute_c,
-            round(avg(precipitation_mm), 1)       as precipitation_mm,
-            round(avg(rainy_days))::int           as rainy_days,
-            round(avg(humidity_mean_pct), 1)      as humidity_mean_pct,
-            null::int                             as regions_sharing_cell
-        from marts.mart_weather_region_monthly
-        {where}
-        group by reference_year, reference_month, reference_month_start
-        order by reference_month_start
-        """,
-        params,
+        f"select * from marts.mart_weather_df_monthly {where} order by reference_month_start", params
     )
 
 

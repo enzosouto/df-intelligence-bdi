@@ -320,3 +320,15 @@ models:
           - accepted_values:
               values: ["RA", "DF"]
 
+
+  - name: mart_security_df_monthly
+    description: Série mensal do DF (soma das RAs), com o número de RAs que publicaram no mês.
+    columns:
+      - name: regions_reporting
+        tests: [not_null]
+
+  - name: mart_weather_df_monthly
+    description: Clima mensal do DF (média das RAs; extremos pelo máximo/mínimo entre RAs).
+    columns:
+      - name: reference_month_start
+        tests: [unique, not_null]

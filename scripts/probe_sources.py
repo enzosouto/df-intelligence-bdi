@@ -6,7 +6,7 @@ s = requests.Session(); s.headers.update(UA)
 
 def get(url, **kw):
     try:
-        r = s.get(url, timeout=60, **kw)
+        r = s.get(url, timeout=(15, 40), **kw)
         return r
     except Exception as e:
         print(f"  !! {url}: {type(e).__name__}: {e}"); return None
@@ -45,14 +45,15 @@ def arcgis(base):
 
 def head(url):
     try:
-        r = s.head(url, timeout=60, allow_redirects=True)
+        r = s.head(url, timeout=(15, 40), allow_redirects=True)
         print(f"HEAD {r.status_code} {r.headers.get('content-type')} len={r.headers.get('content-length')} {url}")
     except Exception as e: print(f"HEAD !! {url}: {e}")
 
-ckan("https://data.se.df.gov.br", ["escola", "censo escolar", "matricula", "unidades escolares", "localizacao"])
-ckan("https://dados.df.gov.br", ["escola", "onibus", "gtfs", "transporte", "parada", "metro", "linhas"])
-arcgis("https://onda.ibram.df.gov.br/server/rest/services")
-arcgis("https://sisdia.df.gov.br/server/rest/services")
-section("INEP")
-for y in (2023, 2024, 2025):
-    head(f"https://download.inep.gov.br/dados_abertos/microdados_censo_escolar_{y}.zip")
+TARGETS = {
+    "seedf": lambda: ckan("https://data.se.df.gov.br", ["escola", "censo escolar", "matricula", "unidades escolares", "localizacao"]),
+    "dadosdf": lambda: ckan("https://dados.df.gov.br", ["escola", "onibus", "gtfs", "transporte", "parada", "metro", "linhas"]),
+    "onda": lambda: arcgis("https://onda.ibram.df.gov.br/server/rest/services"),
+    "sisdia": lambda: arcgis("https://sisdia.df.gov.br/server/rest/services"),
+    "inep": lambda: [head(f"https://download.inep.gov.br/dados_abertos/microdados_censo_escolar_{y}.zip") for y in (2023, 2024, 2025)],
+}
+TARGETS[sys.argv[1]]()

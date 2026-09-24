@@ -6,6 +6,11 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [seedf, dadosdf, onda, sisdia, inep]
     steps:
       - uses: actions/checkout@v4
-      - run: pip install requests && python scripts/probe_sources.py
+      - run: pip install -q requests && timeout 300 python -u scripts/probe_sources.py ${{ matrix.target }}

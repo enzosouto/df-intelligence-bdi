@@ -14,8 +14,8 @@ construção do pipeline.
 |---|---|---|
 | Antes da ingestão | `python -m ingestion.validate_sources` | Fonte fora do ar ou com contrato alterado |
 | Durante a ingestão | `meta.data_quality_check` | Registra achado; `ERROR` derruba o pipeline no CI |
-| Após a transformação | `dbt build` (105 testes) | Teste falho interrompe o build |
-| Sobre o código | `pytest` (40 testes) | Regressão em regra de parsing ou de atribuição |
+| Após a transformação | `dbt build` (153 testes) | Teste falho interrompe o build |
+| Sobre o código | `pytest` (59 unitários + 22 de integração) | Regressão em regra de parsing ou de atribuição |
 
 ---
 
@@ -335,7 +335,7 @@ construção".
 
 ## 3. Testes do dbt
 
-105 testes no total. Os que carregam mais informação:
+153 testes no total. Os que carregam mais informação:
 
 ### 3.1 Reconciliação com o total oficial do IBGE
 
@@ -381,7 +381,7 @@ Duplicata no fato significaria dupla contagem em todos os agregados acima.
 
 ## 4. Testes de código (`pytest`)
 
-40 testes. Alguns exemplos do que eles impedem:
+81 testes (59 unitários, 22 de integração). Alguns exemplos do que eles impedem:
 
 * **`test_count_parsing`** — encontrou um bug real: uma célula lida como `12.0`
   virava `120`, porque a limpeza de separador de milhar pt-BR removia o ponto

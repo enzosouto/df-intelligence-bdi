@@ -3,15 +3,33 @@
 **Brasília através dos dados.**
 
 Plataforma de inteligência urbana sobre o Distrito Federal: uma camada analítica
-que consolida dados públicos de população, segurança, saúde e clima nas 35
-Regiões Administrativas — com ingestão automatizada, modelagem dimensional,
-testes de qualidade, API e interface.
+que consolida dados públicos de população, segurança, saúde, educação,
+mobilidade e clima nas 35 Regiões Administrativas — com ingestão automatizada,
+modelagem dimensional, testes de qualidade, API e interface.
 
 ```
 35 Regiões Administrativas  ·  6 domínios  ·  10 fontes catalogadas
-70.035 ocorrências criminais (2014–2026)  ·  98.630 dias de clima
-2.460 estabelecimentos de saúde  ·  105 testes de qualidade
+70.035 ocorrências criminais (2014–2026)  ·  2.460 estabelecimentos de saúde
+1.594 escolas, 12 anos de Censo Escolar  ·  671,9 km de malha cicloviária
+153 testes de qualidade no dbt  ·  22 testes de integração  ·  59 unitários
 ```
+
+![Dashboard](docs/screenshots/dashboard.jpg)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/regiao-ceilandia.jpg" alt="Página de região — Ceilândia" /></td>
+    <td width="50%"><img src="docs/screenshots/insights.jpg" alt="Insights calculados" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Página de região: seis domínios, com lacuna desenhada como lacuna</sub></td>
+    <td align="center"><sub>Insights calculados, cada um com método, fonte e ressalva</sub></td>
+  </tr>
+</table>
+
+<sub>Telas capturadas com os dados reais do pipeline por
+[`scripts/screenshots.py`](scripts/screenshots.py) — nenhuma montada à mão.
+Para regerar: `workflow_dispatch` do pipeline com `screenshots: true`.</sub>
 
 ---
 
@@ -84,8 +102,8 @@ flowchart LR
 
     subgraph D["dbt"]
         direction TB
-        E1["24 modelos"]
-        E2["105 testes"]
+        E1["37 modelos"]
+        E2["153 testes"]
     end
 
     G["FastAPI"]
@@ -195,7 +213,7 @@ A chave de tudo é `region_id` — o código romano da RA (`RA-I` … `RA-XXXV`)
 
 ## Qualidade dos dados
 
-105 testes dbt + 40 testes pytest. Documentação completa em
+153 testes dbt + 59 testes unitários + 22 de integração. Documentação completa em
 [`docs/data_quality.md`](docs/data_quality.md).
 
 **O teste mais valioso:** a soma da população das RAs tem que bater exatamente
@@ -337,8 +355,8 @@ Nenhum segredo é necessário: todas as fontes são públicas.
 ### Testes
 
 ```bash
-pytest                    # 40 testes (integração é pulada sem banco)
-cd dbt && dbt build       # 24 modelos + 105 testes de qualidade
+pytest                    # 81 testes (integração é pulada sem banco)
+cd dbt && dbt build       # 37 modelos + 153 testes de qualidade
 cd frontend && npm run typecheck
 ```
 

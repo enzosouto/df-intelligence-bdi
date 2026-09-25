@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Removido
+- Brilho magenta que acompanhava o cursor dentro dos painéis. No hover, o
+  painel só ganha a borda do destaque.
+
 ### Corrigido
 - **`docker compose run --rm pipeline` não executava nada.** Num checkout
   Windows com `core.autocrlf=true`, o `scripts/run_pipeline.sh` ia para o

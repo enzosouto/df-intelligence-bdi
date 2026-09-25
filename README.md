@@ -314,7 +314,7 @@ perto do branco, e a hierarquia é feita por tamanho, peso e entreletra — text
 escuro sobre fundo escuro é ilegível, e hierarquia não vale o custo de ninguém
 conseguir ler a cota. O magenta acumula duas
 funções de propósito: é o destaque da interface — foco, navegação ativa,
-retícula, o brilho do painel sob o cursor — e é a cor da segurança, o domínio
+retícula — e é a cor da segurança, o domínio
 que mais pede atenção. Os dois registros nunca dividem o mesmo lugar: um é
 moldura, o outro é marca de dado. As seis cores de domínio ficam espalhadas
 pela roda (0°, 190°, 145°, 30°, 265°, mais o branco) para que duas séries num
@@ -352,7 +352,7 @@ a direita e os números correm até o valor. Trocar a métrica do mapa repinta a
 Com `prefers-reduced-motion`, tudo monta direto no estado final e a retícula
 nem entra no DOM — é esse caminho que as capturas de tela do README usam, o que
 torna a captura determinística e prova que o estado final é o mesmo nos dois
-modos. Em telas de toque não há retícula nem brilho de cursor; as faixas de
+modos. Em telas de toque não há retícula; as faixas de
 controle viram carrossel horizontal em vez de quebrar em quatro linhas.
 
 ---

@@ -64,7 +64,8 @@ provaram que alcançam todas as fontes (é onde o CI roda a ingestão real).
    - Nome: `PRODUCTION_DATABASE_URL`
    - Valor: a connection string da role **dona** (passo 1.2).
 2. *Actions → production-data → Run workflow* (carga completa, ~15 min).
-   Depois disso roda sozinho todo dia às 06:00 de Brasília.
+   Depois disso roda sozinho todo dia às 06:23 de Brasília, com uma
+   repescagem às 12:47 (o GitHub às vezes descarta execuções agendadas).
 
 ### 3. Render — API
 

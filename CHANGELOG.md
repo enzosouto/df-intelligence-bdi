@@ -11,6 +11,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   `scripts/og_image.py` a partir da API.
 
 ### Corrigido (produção)
+- A atualização diária agendada para 09:00 UTC não rodou: o GitHub atrasa e
+  descarta crons em hora cheia. Agora roda às 06:23 de Brasília, com
+  repescagem às 12:47 (o clima é incremental, a segunda execução não duplica
+  nada).
 - "Não foi possível falar com a API" na primeira visita depois de um tempo
   parado: a API gratuita do Render dorme e responde 502/503 sem CORS enquanto
   acorda. O cliente tenta de novo com espera crescente por até ~75 s e mostra

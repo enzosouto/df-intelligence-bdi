@@ -4,6 +4,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Adicionado
+- Miniatura de compartilhamento (`frontend/public/og.png`, 1200×630, 40 KB) e
+  tags Open Graph/Twitter: título, descrição e malha de cobertura real das 35
+  RAs quando o link é colado no WhatsApp, LinkedIn, X ou iMessage. Gerada por
+  `scripts/og_image.py` a partir da API.
+
 ### Corrigido (produção)
 - "Não foi possível falar com a API" na primeira visita depois de um tempo
   parado: a API gratuita do Render dorme e responde 502/503 sem CORS enquanto

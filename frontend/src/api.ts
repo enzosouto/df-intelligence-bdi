@@ -6,6 +6,7 @@
  * build e aponta para a API vista pelo navegador.
  */
 
+import { ref } from 'vue'
 import type {
   Coverage,
   EducationYear,
@@ -47,6 +48,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * A API gratuita do Render dorme após 15 min sem acesso e leva ~30–60 s para
+ * acordar. Nesse intervalo o proxy do Render responde 502/503 (sem cabeçalho
+ * CORS, então o navegador vê "falha de rede"). Em vez de mostrar erro na
+ * primeira visita do dia, a chamada tenta de novo com espera crescente por até
+ * ~75 s, e `apiWaking` avisa a interface para explicar a demora.
+ */
+export const apiWaking = ref(false)
+
+const RETRY_DELAYS_MS = [1500, 3000, 5000, 8000, 12000, 15000, 15000, 15000]
+const RETRYABLE = new Set([502, 503, 504])
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
 async function get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
   const url = new URL(`${BASE}${path}`, window.location.origin)
   for (const [key, value] of Object.entries(params ?? {})) {
@@ -55,17 +69,29 @@ async function get<T>(path: string, params?: Record<string, unknown>): Promise<T
     }
   }
 
-  let response: Response
-  try {
-    response = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
-  } catch {
-    throw new ApiError('Não foi possível falar com a API.', 0, path)
-  }
+  for (let attempt = 0; ; attempt += 1) {
+    let response: Response | null = null
+    try {
+      response = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
+    } catch {
+      response = null
+    }
 
-  if (!response.ok) {
-    throw new ApiError(`A API respondeu ${response.status}.`, response.status, path)
+    if (response?.ok) {
+      apiWaking.value = false
+      return (await response.json()) as T
+    }
+
+    const retryable = response === null || RETRYABLE.has(response.status)
+    if (!retryable || attempt >= RETRY_DELAYS_MS.length) {
+      apiWaking.value = false
+      throw response === null
+        ? new ApiError('Não foi possível falar com a API.', 0, path)
+        : new ApiError(`A API respondeu ${response.status}.`, response.status, path)
+    }
+    apiWaking.value = true
+    await sleep(RETRY_DELAYS_MS[attempt])
   }
-  return (await response.json()) as T
 }
 
 export const api = {

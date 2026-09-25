@@ -92,6 +92,9 @@ app.add_middleware(
         for origin in os.getenv("API_CORS_ORIGINS", "http://localhost:5173").split(",")
         if origin.strip()
     ],
+    # Previews do Vercel ganham um domínio por deploy
+    # (df-intelligence-<hash>-<time>.vercel.app); lista fixa não os cobre.
+    allow_origin_regex=os.getenv("API_CORS_ORIGIN_REGEX") or None,
     allow_credentials=False,
     allow_methods=["GET"],
     allow_headers=["*"],

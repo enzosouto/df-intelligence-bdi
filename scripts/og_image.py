@@ -21,7 +21,7 @@ from pathlib import Path
 from PIL import Image
 from playwright.sync_api import sync_playwright
 
-API = sys.argv[1] if len(sys.argv) > 1 else "https://df-intelligence-api.onrender.com"
+API = sys.argv[1] if len(sys.argv) > 1 else "https://df-intelligence-bdi.vercel.app"
 OUT = Path(__file__).resolve().parents[1] / "frontend" / "public" / "og.png"
 
 # Mesma ordem de células da Malha.vue (2 colunas x 3 linhas).

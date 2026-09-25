@@ -119,8 +119,9 @@ app.add_middleware(
 def health_check() -> dict:
     """Checagem de vida usada pelo Docker. Não confundir com `/api/health`,
     que serve os dados de saúde do DF."""
-    if not db.ping():
-        raise HTTPException(status_code=503, detail="Banco indisponível")
+    problem = db.diagnose()
+    if problem:
+        raise HTTPException(status_code=503, detail=f"Banco indisponível: {problem}")
     return {"status": "ok"}
 
 

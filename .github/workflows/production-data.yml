@@ -2,11 +2,11 @@ name: production-data
 
 # Atualiza o banco de PRODUÇÃO (Neon) — o que o site no ar mostra.
 #
-# Por que aqui e não no Render: os portais do GDF recusam ou estouram conexões
+# Por que aqui e não no Vercel: os portais do GDF recusam ou estouram conexões
 # vindas de fora do Brasil de forma irregular, e os runners do GitHub já
 # provaram que alcançam todas as fontes (é onde o CI roda a ingestão real).
-# E o Actions é o único lugar que tem a senha de ESCRITA do banco; a API no
-# Render só tem a de leitura.
+# E o Actions é o único lugar que tem a senha de ESCRITA do banco; a API
+# (função do Vercel) só tem a de leitura.
 #
 # Ritmo:
 #   todo dia 06:23 (Brasília) → clima + dbt (Open-Meteo publica por dia)

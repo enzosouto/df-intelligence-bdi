@@ -30,7 +30,8 @@ const BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 /**
  * Endereço absoluto de um caminho da API, para LINKS (documentação, JSON de
- * uma região). Em produção a API mora em outro domínio (Render); um href
+ * uma região). A API está no mesmo domínio do site (função do Vercel), mas
+ * em desenvolvimento pode estar em outro (VITE_API_BASE_URL); um href
  * relativo `/api/...` cairia no próprio site e voltaria a página inicial.
  */
 export function apiUrl(path: string): string {
@@ -49,15 +50,14 @@ export class ApiError extends Error {
 }
 
 /**
- * A API gratuita do Render dorme após 15 min sem acesso e leva ~30–60 s para
- * acordar. Nesse intervalo o proxy do Render responde 502/503 (sem cabeçalho
- * CORS, então o navegador vê "falha de rede"). Em vez de mostrar erro na
- * primeira visita do dia, a chamada tenta de novo com espera crescente por até
- * ~75 s, e `apiWaking` avisa a interface para explicar a demora.
+ * Falha de rede ou 502/503/504 (rede do celular oscilando, banco do Neon
+ * acordando) não vira erro na primeira tentativa: a chamada tenta de novo com
+ * espera crescente, e `apiWaking` avisa a interface enquanto isso.
  */
 export const apiWaking = ref(false)
 
-const RETRY_DELAYS_MS = [1500, 3000, 5000, 8000, 12000, 15000, 15000, 15000]
+// ~15 s no total: partida a frio da função e do banco leva segundos, não minutos.
+const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000]
 const RETRYABLE = new Set([502, 503, 504])
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
 

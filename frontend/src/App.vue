@@ -82,9 +82,9 @@ onMounted(async () => {
     Pular para o conteúdo
   </a>
 
-  <!-- Aviso de API acordando: a primeira visita depois de um tempo parado
-       espera o servidor gratuito ligar. Explicar a espera evita que a pessoa
-       ache que o site quebrou e vá embora. -->
+  <!-- Aviso de nova tentativa: se uma chamada à API falha (rede do celular,
+       banco acordando), o cliente tenta de novo sozinho. Dizer isso evita que
+       a pessoa ache que o site travou. -->
   <Transition
     enter-active-class="transition duration-200"
     enter-from-class="opacity-0 -translate-y-2"
@@ -98,8 +98,8 @@ onMounted(async () => {
              border-warn/50 bg-elevated px-4 py-3 font-mono text-[11px] leading-relaxed text-muted sm:top-6"
     >
       <span class="mr-2 inline-block h-1.5 w-1.5 animate-blink bg-warn align-middle" aria-hidden="true" />
-      <span class="text-warn">Ligando o servidor.</span>
-      A API gratuita dorme depois de 15 min sem acesso e leva até 1 minuto para acordar.
+      <span class="text-warn">Reconectando ao servidor.</span>
+      A conexão com os dados falhou; tentando de novo.
     </div>
   </Transition>
 

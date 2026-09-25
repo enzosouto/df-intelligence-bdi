@@ -1,33 +1,41 @@
 # Deploy
 
-Três serviços gerenciados, cada um com uma função e a menor permissão possível:
+Dois serviços gerenciados e o GitHub Actions, cada um com a menor permissão
+possível:
 
 ```
-                  ┌──────────────────────────┐
-  navegador ────► │ Vercel  — site (Vue)     │  estático, CDN, headers de segurança
-      │           └──────────────────────────┘
-      │ fetch /api/*
-      ▼
-  ┌──────────────────────────┐   role api_reader    ┌──────────────────────┐
-  │ Render  — API (FastAPI)  │ ───── só leitura ──► │ Neon — PostgreSQL    │
-  └──────────────────────────┘                      └──────────────────────┘
-                                                              ▲
-  ┌────────────────────────────────────────────┐  role dona   │
-  │ GitHub Actions — production-data.yml        │ ─────────────┘
-  │ todo dia: clima + dbt · segundas: tudo      │  (única com escrita)
-  └────────────────────────────────────────────┘
+                  ┌──────────────────────────────────────────┐
+  navegador ────► │ Vercel — df-intelligence-bdi.vercel.app  │
+                  │   /          → site (Vue, estático, CDN) │
+                  │   /api/*     → função Python (FastAPI)   │
+                  └──────────────────────┬───────────────────┘
+                                         │ role api_reader (só leitura)
+                                         ▼
+                              ┌──────────────────────┐
+                              │ Neon — PostgreSQL    │
+                              └──────────────────────┘
+                                         ▲ role dona (única com escrita)
+  ┌──────────────────────────────────────┴──────┐
+  │ GitHub Actions — production-data.yml        │
+  │ todo dia: clima + dbt · segundas: tudo      │
+  └─────────────────────────────────────────────┘
 ```
 
 | Peça | Onde | Credencial | Pode |
 |---|---|---|---|
 | Banco | Neon, `us-east-2` (Ohio) | — | — |
 | Carga dos dados | GitHub Actions | `PRODUCTION_DATABASE_URL` (secret, role dona) | escrever |
-| API | Render, região `ohio`, `render.yaml` | `DATABASE_URL` da role `api_reader` | só ler `marts` |
-| Site | Vercel, `vercel.json` + `.vercelignore` na raiz | nenhuma | — |
+| API | Vercel, função `api/index.py`, região `cle1` (Ohio) | `DATABASE_URL` da role `api_reader` | só ler `marts` |
+| Site | Vercel, mesmo domínio, `vercel.json` | nenhuma | — |
 
-**Por que a carga roda no GitHub e não no Render:** os portais do GDF recusam
-conexões de fora do Brasil de forma irregular, e os runners do GitHub já
-provaram que alcançam todas as fontes (é onde o CI roda a ingestão real).
+**Por que a API saiu do Render:** no plano gratuito ele hiberna o serviço após
+15 min e, em 25/09/2026, não o religou — o site ficou preso na tela de
+carregamento até um deploy manual. Como função do Vercel, a partida a frio é de
+~1 s, o domínio é o mesmo do site (sem CORS) e não há serviço para manter.
+
+**Por que a carga roda no GitHub:** os portais do GDF recusam conexões de fora
+do Brasil de forma irregular, e os runners do GitHub já provaram que alcançam
+todas as fontes (é onde o CI roda a ingestão real).
 
 ## Segurança
 
@@ -37,12 +45,11 @@ provaram que alcançam todas as fontes (é onde o CI roda a ingestão real).
   são refeitos pelo próprio dbt a cada tabela recriada
   (`dbt/macros/grant_api_reader.sql`).
 - **Senha de escrita em um lugar só:** o secret do GitHub Actions.
-- **Nenhuma credencial no repositório.** `render.yaml` declara as variáveis
-  com `sync: false`; os valores ficam nos painéis.
-- **TLS** em tudo (`sslmode=require` no Neon, HTTPS no Render e no Vercel).
-- **CORS** restrito ao domínio do site, só `GET`.
-- **Headers no site:** CSP (só scripts do próprio domínio; conexões só com a
-  API no Render), HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`.
+- **Nenhuma credencial no repositório.** `DATABASE_URL` fica nas variáveis do
+  projeto no Vercel; a senha de escrita, no secret do GitHub.
+- **TLS** em tudo (`sslmode=require` no Neon, HTTPS no Vercel).
+- **Mesmo domínio:** site e API no mesmo endereço; o navegador não precisa de CORS.
+- **Headers no site:** CSP (só scripts e conexões do próprio domínio), HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`.
 
 ## Passo a passo
 
@@ -67,40 +74,33 @@ provaram que alcançam todas as fontes (é onde o CI roda a ingestão real).
    Depois disso roda sozinho todo dia às 06:23 de Brasília, com uma
    repescagem às 12:47 (o GitHub às vezes descarta execuções agendadas).
 
-### 3. Render — API
+### 3. Vercel — site e API
 
-*New → Blueprint*, escolha o repositório. O `render.yaml` cria o serviço.
-Preencha:
+*Add New → Project*, escolha o repositório e clique em *Deploy*, sem mudar
+nada. O `vercel.json` da raiz faz o build de `frontend/`, publica `api/index.py`
+como função Python e manda `/api/*`, `/docs`, `/redoc` e `/openapi.json` para
+ela; o resto é o site.
+
+Depois, em *Settings → Environments → Production → Environment Variables*:
 
 | Variável | Valor |
 |---|---|
 | `DATABASE_URL` | `postgresql://api_reader:<senha>@<host-sem-pooler>/neondb?sslmode=require` |
-| `API_CORS_ORIGINS` | domínio do site, ex. `https://df-intelligence-bdi.vercel.app` |
-| `API_CORS_ORIGIN_REGEX` | já vem no `render.yaml`: libera os previews do Vercel |
 
-Confira: `https://<servico>.onrender.com/api/health-check`.
+e *Deployments → ⋯ → Redeploy* (variável nova só vale em deploy novo).
 
-### 4. Vercel — site
-
-*Add New → Project*, escolha o repositório e clique em *Deploy*, sem mudar
-nada. O `vercel.json` da raiz faz o build de `frontend/`, já aponta para a API
-no Render e define rotas do Vue, cache e headers. O `.vercelignore` tira do
-upload a API e o pipeline: sem ele, o Vercel acha o FastAPI em `api/`, trata o
-projeto como Python e cada página vira erro 500.
-
-Se o nome do serviço no Render for outro, troque a URL em `buildCommand` do
-`vercel.json`. O domínio final do Vercel precisa estar em `API_CORS_ORIGINS`
-no Render.
+Confira: `https://<projeto>.vercel.app/api/health-check` → `{"status":"ok"}`.
+Se vier 503, o `detail` diz a categoria da falha (variável ausente, senha
+recusada, tempo esgotado…) sem expor a URL.
 
 ## Custos e limites (planos gratuitos)
 
-- **Render free** hiberna após 15 min sem acesso; a primeira visita depois
-  disso leva ~30–60 s. O site tenta de novo sozinho por até ~75 s e mostra o
-  aviso "Ligando o servidor" em vez de erro. O plano Starter
-  (US$ 7/mês) mantém a API sempre ligada.
+- **Vercel Hobby**: função com partida a frio de ~1 s; uso pessoal e não
+  comercial.
 - **Neon free**: 0,5 GB (o banco usa bem menos) e computação que suspende
-  sozinha; a API troca a conexão derrubada por uma nova sem erro.
-- **GitHub Actions**: a carga diária leva poucos minutos; a semanal, ~15.
+  sozinha após alguns minutos; acorda em ~1 s, e a API troca a conexão
+  derrubada por uma nova sem erro.
+- **GitHub Actions**: a carga diária leva ~1 min; a semanal, ~15.
 
 ## Rodando localmente
 

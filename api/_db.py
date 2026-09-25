@@ -79,9 +79,38 @@ def fetch_one(sql: str, params: Sequence[Any] | dict | None = None) -> dict | No
 
 
 def ping() -> bool:
+    return diagnose() is None
+
+
+def diagnose() -> str | None:
+    """None se o banco responde; senão, a CATEGORIA da falha.
+
+    Serve ao health-check: com a API numa plataforma cujos logs nem sempre
+    estão à mão (função serverless), saber se falta a variável, se a senha foi
+    recusada ou se a rede não chega resolve metade do diagnóstico. Só a
+    categoria sai — nunca a mensagem crua, que pode conter host e usuário.
+    """
+    if not os.getenv("DATABASE_URL"):
+        return "DATABASE_URL não definida"
     try:
         with cursor() as cur:
             cur.execute("select 1")
-            return cur.fetchone() is not None
-    except psycopg2.Error:
-        return False
+            cur.fetchone()
+        return None
+    except Exception as exc:  # noqa: BLE001
+        message = str(exc).lower()
+        for needle, category in (
+            ("password authentication failed", "senha recusada"),
+            ("role", "usuário inexistente"),
+            ("could not translate host", "host não encontrado"),
+            ("timeout", "tempo esgotado"),
+            ("timed out", "tempo esgotado"),
+            ("ssl", "falha de SSL"),
+            ("does not exist", "banco inexistente"),
+            ("invalid dsn", "URL mal formada"),
+            ("invalid connection option", "URL mal formada"),
+            ("connection refused", "conexão recusada"),
+        ):
+            if needle in message:
+                return category
+        return f"falha de conexão ({type(exc).__name__})"

@@ -16,5 +16,12 @@ const routes = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior: () => ({ top: 0 }),
+  // Voltar (gesto ou botão) devolve a rolagem onde estava — no celular, perder
+  // o lugar numa página longa a cada "voltar" é o atrito mais comum. Âncora
+  // (#seguranca) rola até a seção descontando o cabeçalho fixo.
+  scrollBehavior: (to, _from, saved) => {
+    if (saved) return saved
+    if (to.hash) return { el: to.hash, top: 112, behavior: 'smooth' }
+    return { top: 0 }
+  },
 })

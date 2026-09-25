@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { api } from '@/api'
-import { dateTime } from '@/format'
+import { api, apiUrl } from '@/api'
+import { dateTime, shortDate } from '@/format'
 import { bindPointer, hasFinePointer, prefersReducedMotion } from '@/motion'
 import AppLoader from '@/components/AppLoader.vue'
 import BackgroundField from '@/components/BackgroundField.vue'
@@ -25,11 +25,24 @@ const steps = reactive<{ label: string; status: 'pending' | 'ok' | 'fail' }[]>([
   { label: '/api/coverage', status: 'pending' },
 ])
 
+/**
+ * Três destinos, os mesmos no topo (desktop) e na barra de baixo (celular).
+ * `icon` é o traço de um SVG 24×24 — desenhado em linha reta e canto vivo,
+ * como o resto da interface.
+ */
 const NAV = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/insights', label: 'Insights' },
-  { to: '/fontes', label: 'Fontes' },
+  { to: '/', label: 'Painel', long: 'Dashboard', icon: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z' },
+  { to: '/insights', label: 'Insights', long: 'Insights', icon: 'M4 20h16M6 16l4-5 3 3 5-7' },
+  { to: '/fontes', label: 'Fontes', long: 'Fontes', icon: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3' },
 ]
+
+/** A aba de uma página de região é o Painel: é de lá que se chega nela. */
+function isActive(to: string): boolean {
+  if (to === '/') return route.path === '/' || route.path.startsWith('/regiao/')
+  return route.path.startsWith(to)
+}
+
+const docsUrl = apiUrl('/docs')
 
 onMounted(async () => {
   bindPointer()
@@ -61,70 +74,86 @@ onMounted(async () => {
 
   <AppLoader v-if="booting" :steps="steps" :ready="booted" @done="booting = false" />
 
+  <a
+    href="#conteudo"
+    class="sr-only z-[60] bg-accent px-4 py-3 font-mono text-xs uppercase text-night focus:not-sr-only
+           focus:fixed focus:left-4 focus:top-4"
+  >
+    Pular para o conteúdo
+  </a>
+
   <div class="min-h-screen">
-    <header class="sticky top-0 z-40 border-b border-line bg-night/90 backdrop-blur-sm">
+    <header class="safe-top sticky top-0 z-40 border-b border-line bg-night/90 backdrop-blur-sm">
       <div class="mx-auto max-w-[88rem] px-4 sm:px-8">
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-3 py-3 sm:py-4">
-          <RouterLink to="/" class="flex items-baseline gap-2.5 sm:gap-3">
+        <div class="flex h-14 items-center gap-x-6 sm:h-auto sm:py-4">
+          <RouterLink to="/" class="flex min-h-[44px] items-center gap-2.5 sm:min-h-0 sm:gap-3">
             <span
-              class="font-display text-[1.2rem] font-bold leading-none tracking-tight text-ink sm:text-[1.35rem]"
+              class="font-display text-[1.25rem] font-bold leading-none tracking-tight text-ink sm:text-[1.35rem]"
               style="font-stretch: 118%"
             >
               DF
             </span>
-            <span class="h-4 w-px self-center bg-line" aria-hidden="true" />
-            <span class="font-mono text-[10px] uppercase tracking-plan text-muted sm:text-[11px]">
+            <span class="h-4 w-px bg-line" aria-hidden="true" />
+            <span class="font-mono text-[11px] uppercase tracking-plan text-muted">
               Intelligence
             </span>
           </RouterLink>
 
-          <nav class="flex items-center gap-4 sm:gap-5" aria-label="Navegação principal">
+          <!-- Desktop: navegação no topo. No celular ela desce para a barra de
+               baixo, onde o polegar alcança. -->
+          <nav class="hidden items-center gap-5 sm:flex" aria-label="Navegação principal">
             <RouterLink
               v-for="item in NAV"
               :key="item.to"
               :to="item.to"
-              class="border-b-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em]
-                     transition-colors sm:text-[11px]"
-              :class="
-                route.path === item.to
-                  ? 'border-accent text-ink'
-                  : 'border-transparent text-faint hover:text-muted'
-              "
+              class="border-b-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors"
+              :class="isActive(item.to) ? 'border-accent text-ink' : 'border-transparent text-faint hover:text-muted'"
+              :aria-current="isActive(item.to) ? 'page' : undefined"
             >
-              {{ item.label }}
+              {{ item.long }}
             </RouterLink>
           </nav>
 
           <div class="ml-auto flex items-center gap-4">
             <span
               v-if="lastUpdate"
-              class="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-faint lg:block"
+              class="font-mono text-[10px] uppercase tracking-[0.12em] text-faint"
+              :title="`Dados atualizados em ${dateTime(lastUpdate)}`"
             >
-              Atualizado {{ dateTime(lastUpdate) }}
+              <span class="hidden lg:inline">Atualizado {{ dateTime(lastUpdate) }}</span>
+              <span class="inline-flex items-center gap-1.5 lg:hidden">
+                <span class="h-1.5 w-1.5 bg-education" aria-hidden="true" />
+                {{ shortDate(lastUpdate) }}
+              </span>
             </span>
             <a
-              href="/docs"
+              :href="docsUrl"
               target="_blank"
               rel="noopener"
-              class="border border-line px-2.5 py-1 font-mono text-[10px] uppercase
+              class="hidden border border-line px-2.5 py-1 font-mono text-[10px] uppercase
                      tracking-[0.12em] text-faint transition-colors hover:border-accent
-                     hover:text-ink"
+                     hover:text-ink sm:inline-block"
             >
               API
             </a>
           </div>
         </div>
 
-        <!-- A malha: cobertura das 35 RAs, sempre à vista. -->
-        <div v-if="coverage.length" class="flex items-center gap-3 pb-3 sm:gap-4">
-          <span class="label hidden shrink-0 sm:block">Cobertura</span>
+        <!-- A malha: cobertura das 35 RAs. No celular os 35 módulos teriam 9px
+             cada — alvo de toque impossível e ruído no cabeçalho fixo. Ela
+             aparece a partir do tablet. -->
+        <div v-if="coverage.length" class="hidden items-center gap-4 pb-3 sm:flex">
+          <span class="label shrink-0">Cobertura</span>
           <Malha :coverage="coverage" @select="router.push(`/regiao/${$event}`)" />
           <span class="label ml-auto hidden shrink-0 text-right md:block">35 RA · 6 domínios</span>
         </div>
       </div>
     </header>
 
-    <main class="mx-auto max-w-[88rem] px-4 py-8 sm:px-8 sm:py-12">
+    <main
+      id="conteudo"
+      class="mx-auto max-w-[88rem] px-4 pb-10 pt-6 sm:px-8 sm:py-12"
+    >
       <RouterView v-slot="{ Component }">
         <Transition
           mode="out-in"
@@ -138,18 +167,59 @@ onMounted(async () => {
       </RouterView>
     </main>
 
-    <footer class="border-t border-line">
+    <footer class="border-t border-line pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:pb-0">
       <div
-        class="mx-auto flex max-w-[88rem] flex-col gap-2 px-4 py-8 font-mono text-[10px]
+        class="mx-auto flex max-w-[88rem] flex-col gap-3 px-4 py-8 font-mono text-[10px]
                uppercase leading-relaxed tracking-[0.1em] text-faint sm:flex-row
-               sm:items-center sm:justify-between sm:px-8"
+               sm:items-center sm:justify-between sm:gap-2 sm:px-8"
       >
         <p>IBGE · IBRAM/ONDA-DF · SSP-DF · CNES · SEEDF/Inep · IDE-DF · Open-Meteo</p>
         <p>
           <span class="text-accent">Enzo Souto</span> · Analista de dados
           <span class="text-faint"> · Projeto independente, sem vínculo com o GDF</span>
         </p>
+        <a :href="docsUrl" target="_blank" rel="noopener" class="link-underline py-3 sm:hidden">
+          Documentação da API
+        </a>
       </div>
     </footer>
+
+    <!-- Barra de abas do celular: fixa embaixo, 56px + a área da barra de
+         gestos. Ícone + rótulo (rótulo sozinho some, ícone sozinho é enigma). -->
+    <nav
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-night/95 backdrop-blur-sm sm:hidden"
+      style="padding-bottom: env(safe-area-inset-bottom)"
+      aria-label="Navegação principal"
+    >
+      <ul class="grid h-14 grid-cols-3">
+        <li v-for="item in NAV" :key="item.to">
+          <RouterLink
+            :to="item.to"
+            class="relative flex h-full flex-col items-center justify-center gap-1 font-mono
+                   text-[10px] uppercase tracking-[0.12em] transition-colors"
+            :class="isActive(item.to) ? 'text-ink' : 'text-faint'"
+            :aria-current="isActive(item.to) ? 'page' : undefined"
+          >
+            <span
+              class="absolute inset-x-6 top-0 h-[2px] transition-colors"
+              :class="isActive(item.to) ? 'bg-accent' : 'bg-transparent'"
+              aria-hidden="true"
+            />
+            <svg
+              viewBox="0 0 24 24"
+              class="h-5 w-5"
+              fill="none"
+              :stroke="isActive(item.to) ? '#FF006A' : 'currentColor'"
+              stroke-width="1.6"
+              stroke-linejoin="miter"
+              aria-hidden="true"
+            >
+              <path :d="item.icon" />
+            </svg>
+            {{ item.label }}
+          </RouterLink>
+        </li>
+      </ul>
+    </nav>
   </div>
 </template>

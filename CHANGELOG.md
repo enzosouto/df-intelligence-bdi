@@ -4,6 +4,28 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Mobile
+- **Página vazava para ~605px num celular de 390px** (o grid do mapa sem
+  coluna explícita aceitava a largura da faixa de botões). Em todas as páginas
+  a largura agora é a da tela.
+- Barra de abas fixa embaixo (Painel, Insights, Fontes), com área da barra de
+  gestos; cabeçalho de 56px; malha de cobertura só a partir do tablet.
+- Gráficos desenhados na largura real (ResizeObserver): o texto dos eixos
+  passava de 10px para ~4px ao encolher uma prancheta de 760px. Leitura por
+  toque e arraste, sem travar a rolagem vertical.
+- Mapa: no toque, o primeiro toque mostra nome e valor com botão "Abrir"; a
+  prancheta segue o formato do DF (sem faixas vazias).
+- Seletor nativo de região no painel e na página da RA; atalhos fixos para as
+  seções; botão de compartilhar (folha do sistema ou copiar link).
+- Ranking começa com 8 no celular e abre as 35 num toque; tabelas de
+  cobertura e do pipeline viram cartões; metodologia dos insights recolhida
+  (a limitação continua sempre visível).
+- Alvos de toque de 40–44px; sem atraso de 300 ms nem flash de toque.
+- Instalável na tela inicial (manifest, ícones 192/512 e maskable,
+  `viewport-fit=cover`, safe areas). Grade do fundo parada em tela de toque.
+- Links da API (documentação, JSON da região) apontam para o Render; antes
+  caíam no próprio site.
+
 ### Adicionado
 - **Atualização automática.** Serviço `updater` no Docker Compose
   (`scripts/scheduler.py`): clima + dbt todo dia às 06:00 de Brasília, todas

@@ -20,8 +20,16 @@ import LoadState from '@/components/LoadState.vue'
 import RankBars from '@/components/RankBars.vue'
 import RegionMap from '@/components/RegionMap.vue'
 import DataNotice from '@/components/DataNotice.vue'
+import RegionPicker from '@/components/RegionPicker.vue'
+import { useIsPhone } from '@/composables/useMedia'
+import { hasFinePointer } from '@/motion'
 
 const router = useRouter()
+const isPhone = useIsPhone()
+const fine = hasFinePointer()
+/** No celular o ranking começa curto; a lista inteira fica a um toque. */
+const showAllRanking = ref(false)
+const rankingLimit = computed(() => (showAllRanking.value ? 35 : isPhone.value ? 8 : 14))
 
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -304,8 +312,8 @@ onMounted(load)
       </p>
       <h1
         v-reveal
-        class="mt-4 font-display text-[2.75rem] font-bold uppercase leading-[0.92] tracking-tight
-               sm:text-[4.5rem]"
+        class="mt-4 font-display text-[2.4rem] font-bold uppercase leading-[0.92] tracking-tight
+               min-[400px]:text-[2.75rem] sm:text-[4.5rem]"
         style="font-stretch: 118%"
       >
         Brasília<br />
@@ -321,8 +329,11 @@ onMounted(load)
 
     <LoadState :loading="loading" :error="error" @retry="load">
       <!-- KPIs -->
-      <section class="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+      <!-- Celular: 2 colunas, com os dois valores longos (população e data)
+           ocupando a linha inteira — número cortado no meio é pior que rolar. -->
+      <section class="grid grid-cols-2 gap-px border border-line bg-line lg:grid-cols-4">
         <KpiCard
+          class="col-span-2 sm:col-span-1"
           label="População do DF"
           :count="overview?.population_df_latest ?? null"
           :format="num"
@@ -344,6 +355,7 @@ onMounted(load)
           :hint="`${overview?.sources_total ?? 0} fontes catalogadas · ${overview?.government_sources_total ?? 0} do GDF`"
         />
         <KpiCard
+          class="col-span-2 sm:col-span-1"
           label="Última atualização"
           :value="overview?.data_last_updated_at ? fullDate(overview.data_last_updated_at) : '—'"
           :hint="
@@ -355,20 +367,27 @@ onMounted(load)
       </section>
 
       <!-- Mapa + ranking -->
-      <section class="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-        <div class="card card-pad">
+      <!-- `grid-cols-1` + `min-w-0`: sem coluna explícita, a faixa de botões
+           (que rola na horizontal) impunha a própria largura ao grid e a página
+           inteira ficava com ~600px num celular de 390px. -->
+      <section class="mt-8 grid grid-cols-1 gap-6 sm:mt-10 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <div class="card card-pad min-w-0">
           <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
-            <div>
+            <div class="min-w-0">
               <h2 class="section-title">Mapa do Distrito Federal</h2>
-              <p class="label mt-2">35 Regiões Administrativas · clique para abrir o detalhe</p>
+              <p class="label mt-2">
+                35 Regiões Administrativas · {{ fine ? 'clique para abrir o detalhe' : 'toque para ver o valor' }}
+              </p>
             </div>
-            <div class="rail">
+            <div class="rail w-full sm:w-auto" role="tablist" aria-label="Indicador do mapa">
               <button
                 v-for="item in METRICS"
                 :key="item.key"
                 type="button"
-                class="border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em]
-                       transition-colors"
+                role="tab"
+                :aria-selected="metricKey === item.key"
+                class="min-h-[40px] border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.1em]
+                       transition-colors sm:min-h-0 sm:px-2.5 sm:py-1.5 sm:text-[10px]"
                 :class="
                   metricKey === item.key
                     ? 'border-transparent text-night'
@@ -394,9 +413,14 @@ onMounted(load)
           />
 
           <DataNotice class="mt-5">{{ metric.note }}</DataNotice>
+
+          <RegionPicker
+            class="mt-4 sm:hidden"
+            :regions="features.map((f) => ({ id: f.properties.region_id, name: f.properties.region_name }))"
+          />
         </div>
 
-        <div class="card card-pad">
+        <div class="card card-pad min-w-0">
           <h2 class="section-title">Ranking · {{ metric.label }}</h2>
           <p class="label mb-4 mt-2">Maiores valores entre as 35 RAs</p>
           <RankBars
@@ -404,14 +428,23 @@ onMounted(load)
             :color="metric.color"
             :format-value="(value) => metric.format(value)"
             :selected-id="hoveredRegion"
-            :limit="14"
+            :limit="rankingLimit"
             @select="router.push(`/regiao/${$event}`)"
           />
+          <button
+            v-if="!showAllRanking"
+            type="button"
+            class="mt-4 h-11 w-full border border-line font-mono text-[11px] uppercase tracking-[0.12em]
+                   text-muted transition-colors hover:border-accent hover:text-ink"
+            @click="showAllRanking = true"
+          >
+            Ver as 35 regiões
+          </button>
         </div>
       </section>
 
       <!-- Os seis domínios, cada um com o número que a fonte publica hoje -->
-      <section class="mt-12">
+      <section class="mt-10 sm:mt-12">
         <h2 v-reveal class="section-title">Seis domínios</h2>
         <div v-reveal.rule class="mt-4 h-px w-full bg-line" />
         <div class="mt-px grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
@@ -434,8 +467,8 @@ onMounted(load)
       </section>
 
       <!-- Séries temporais -->
-      <section class="mt-10 grid gap-6 lg:grid-cols-2">
-        <div class="card card-pad">
+      <section class="mt-8 grid grid-cols-1 gap-6 sm:mt-10 lg:grid-cols-2">
+        <div class="card card-pad min-w-0">
           <h2 class="section-title">Evolução da população do DF</h2>
           <p class="label mb-5 mt-2">
             Série do IBGE, {{ populationDF[0]?.reference_year }}–{{
@@ -464,7 +497,7 @@ onMounted(load)
           </DataNotice>
         </div>
 
-        <div class="card card-pad">
+        <div class="card card-pad min-w-0">
           <h2 class="section-title">Crimes registrados por mês</h2>
           <p class="label mb-5 mt-2">
             Soma das RAs que publicaram cada mês · SSP-DF, a partir de 2018
@@ -481,7 +514,7 @@ onMounted(load)
           </DataNotice>
         </div>
 
-        <div class="card card-pad">
+        <div class="card card-pad min-w-0">
           <h2 class="section-title">Temperatura média mensal</h2>
           <p class="label mb-5 mt-2">Média das 35 RAs · ERA5/Open-Meteo</p>
           <LineChart
@@ -493,7 +526,7 @@ onMounted(load)
           />
         </div>
 
-        <div class="card card-pad">
+        <div class="card card-pad min-w-0">
           <h2 class="section-title">Precipitação mensal</h2>
           <p class="label mb-5 mt-2">
             A seca de maio a setembro é a marca climática do Planalto Central

@@ -72,8 +72,8 @@ watch(
       <li v-for="(item, index) in ranked" :key="item.id" class="border-b border-line/60 last:border-0">
         <button
           type="button"
-          class="group grid w-full grid-cols-[1.6rem_minmax(0,1fr)_auto] items-center gap-3
-                 py-2 text-left transition-colors hover:bg-elevated"
+          class="group grid min-h-[44px] w-full grid-cols-[1.6rem_minmax(0,1fr)_auto] items-center gap-3
+                 py-2 text-left transition-colors hover:bg-elevated active:bg-elevated sm:min-h-0"
           :class="selectedId === item.id ? 'bg-elevated' : ''"
           @click="emit('select', item.id)"
         >

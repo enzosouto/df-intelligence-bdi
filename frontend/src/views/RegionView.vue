@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { api } from '@/api'
+import { api, apiUrl } from '@/api'
 import { dec, monthLabel, num, pct, temperature } from '@/format'
 import type {
   BikewayYear,
@@ -17,6 +17,7 @@ import type { Series } from '@/components/chart'
 import LineChart from '@/components/LineChart.vue'
 import LoadState from '@/components/LoadState.vue'
 import DataNotice from '@/components/DataNotice.vue'
+import RegionPicker from '@/components/RegionPicker.vue'
 
 const props = defineProps<{ regionId: string }>()
 
@@ -31,6 +32,44 @@ const education = ref<EducationYear[]>([])
 const mobility = ref<MobilityRegion | null>(null)
 const bikeways = ref<BikewayYear[]>([])
 const coverage = ref<Coverage | null>(null)
+const allRegions = ref<{ id: string; name: string }[]>([])
+
+/** Atalhos da página: no celular ela tem ~5 telas de altura. */
+const sections = computed(() =>
+  [
+    { id: 'seguranca', label: 'Segurança', color: '#FF006A', show: true },
+    { id: 'saude', label: 'Saúde', color: '#00D4FF', show: !!health.value },
+    { id: 'educacao', label: 'Educação', color: '#7CFFB2', show: education.value.length > 0 },
+    { id: 'mobilidade', label: 'Mobilidade', color: '#FF9A3D', show: !!mobility.value },
+    { id: 'clima', label: 'Clima', color: '#A86BFF', show: true },
+  ].filter((section) => section.show),
+)
+
+/**
+ * Compartilhar: a folha nativa do sistema no celular (WhatsApp, e-mail…);
+ * onde ela não existe, o link vai para a área de transferência.
+ */
+const shareState = ref<'idle' | 'copied'>('idle')
+const canShare = typeof navigator !== 'undefined' && 'share' in navigator
+async function share() {
+  if (!region.value) return
+  const data = {
+    title: `${region.value.region_name} · DF Intelligence`,
+    text: `Dados públicos de ${region.value.region_name} (DF): população, segurança, saúde, educação, mobilidade e clima.`,
+    url: window.location.href,
+  }
+  try {
+    if (canShare) {
+      await navigator.share(data)
+    } else {
+      await navigator.clipboard.writeText(data.url)
+      shareState.value = 'copied'
+      window.setTimeout(() => (shareState.value = 'idle'), 2200)
+    }
+  } catch {
+    // Cancelar a folha de compartilhamento não é erro.
+  }
+}
 const parentName = ref<string | null>(null)
 
 const securityChart = computed<Series[]>(() => {
@@ -163,6 +202,7 @@ async function load() {
     mobility.value = mobilityData[0] ?? null
     bikeways.value = bikewayData
     coverage.value = coverageData.find((item) => item.region_id === props.regionId) ?? null
+    allRegions.value = coverageData.map((item) => ({ id: item.region_id, name: item.region_name }))
 
     if (indicators.inferred_parent_region_id) {
       parentName.value = (await api.region(indicators.inferred_parent_region_id)).region_name
@@ -180,8 +220,11 @@ watch(() => props.regionId, load)
 
 <template>
   <div class="space-y-8">
-    <RouterLink to="/" class="inline-flex items-center gap-1.5 text-xs text-muted hover:text-ink">
-      <span aria-hidden="true">←</span> Voltar ao dashboard
+    <RouterLink
+      to="/"
+      class="-my-2 inline-flex min-h-[44px] items-center gap-1.5 text-xs text-muted hover:text-ink"
+    >
+      <span aria-hidden="true">←</span> Voltar ao painel
     </RouterLink>
 
     <LoadState :loading="loading" :error="error" @retry="load">
@@ -198,10 +241,52 @@ watch(() => props.regionId, load)
               · {{ dec(region.density_2022_per_km2, 1) }} hab/km²
             </span>
           </p>
+
+          <div class="mt-5 flex gap-2 sm:max-w-md">
+            <RegionPicker
+              class="min-w-0 flex-1"
+              :regions="allRegions"
+              :current="region.region_id"
+              label="Trocar de região"
+            />
+            <button
+              type="button"
+              class="flex h-11 shrink-0 items-center gap-2 border border-line px-3 font-mono text-[11px]
+                     uppercase tracking-[0.1em] text-muted transition-colors hover:border-accent hover:text-ink"
+              :aria-label="canShare ? 'Compartilhar esta região' : 'Copiar link desta região'"
+              @click="share"
+            >
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M12 3v12M7 8l5-5 5 5M5 13v8h14v-8" />
+              </svg>
+              <span class="hidden min-[400px]:inline">{{ shareState === 'copied' ? 'Copiado' : canShare ? 'Compartilhar' : 'Copiar link' }}</span>
+            </button>
+          </div>
         </header>
 
+        <!-- Atalhos das seções: fixos sob o cabeçalho no celular. -->
+        <nav
+          class="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-30 -mx-4 border-y border-line
+                 bg-night/95 px-4 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0"
+          aria-label="Seções desta região"
+        >
+          <div class="rail py-2 sm:py-0">
+            <a
+              v-for="section in sections"
+              :key="section.id"
+              :href="`#${section.id}`"
+              class="inline-flex min-h-[36px] items-center gap-2 border border-line px-3 font-mono
+                     text-[11px] uppercase tracking-[0.1em] text-muted transition-colors hover:text-ink"
+              @click.prevent="$router.replace({ hash: `#${section.id}` })"
+            >
+              <span class="h-1.5 w-1.5" :style="{ background: section.color }" aria-hidden="true" />
+              {{ section.label }}
+            </a>
+          </div>
+        </nav>
+
         <!-- Indicadores principais -->
-        <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <div class="card card-pad">
             <p class="label" style="color: #ffffff">População</p>
             <p class="metric mt-2">{{ num(region.population_2022) }}</p>
@@ -308,7 +393,7 @@ watch(() => props.regionId, load)
         </section>
 
         <!-- Segurança -->
-        <section class="card card-pad">
+        <section id="seguranca" class="card card-pad min-w-0 scroll-mt-28">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 class="section-title">Ocorrências por mês</h2>
@@ -348,7 +433,7 @@ watch(() => props.regionId, load)
         </section>
 
         <!-- Saúde -->
-        <section v-if="health" class="card card-pad">
+        <section v-if="health" id="saude" class="card card-pad min-w-0 scroll-mt-28">
           <h2 class="section-title">Rede de saúde instalada</h2>
           <p class="mt-1 text-xs text-faint">Cadastro Nacional de Estabelecimentos de Saúde</p>
 
@@ -379,7 +464,7 @@ watch(() => props.regionId, load)
         </section>
 
         <!-- Educação -->
-        <section v-if="education.length" class="card card-pad">
+        <section v-if="education.length" id="educacao" class="card card-pad min-w-0 scroll-mt-28">
           <h2 class="section-title">Matrículas por etapa</h2>
           <p class="mb-5 mt-1 text-xs text-faint">
             Censo Escolar · todas as redes · escolas localizadas nesta RA
@@ -412,7 +497,7 @@ watch(() => props.regionId, load)
         </section>
 
         <!-- Mobilidade -->
-        <section v-if="mobility" class="card card-pad">
+        <section v-if="mobility" id="mobilidade" class="card card-pad min-w-0 scroll-mt-28">
           <h2 class="section-title">Mobilidade</h2>
           <p class="mt-1 text-xs text-faint">
             Malha cicloviária e metrô · IDE-DF · trechos recortados pela divisa da RA
@@ -460,8 +545,8 @@ watch(() => props.regionId, load)
         </section>
 
         <!-- Clima -->
-        <section class="grid gap-6 lg:grid-cols-2">
-          <div class="card card-pad">
+        <section id="clima" class="grid scroll-mt-28 grid-cols-1 gap-6 lg:grid-cols-2">
+          <div class="card card-pad min-w-0">
             <h2 class="section-title">Temperatura</h2>
             <p class="mb-5 mt-1 text-xs text-faint">
               Máxima e mínima médias por mês · ERA5/Open-Meteo
@@ -474,7 +559,7 @@ watch(() => props.regionId, load)
               :y-zero="false"
             />
           </div>
-          <div class="card card-pad">
+          <div class="card card-pad min-w-0">
             <h2 class="section-title">Chuva</h2>
             <p class="mb-5 mt-1 text-xs text-faint">Acumulado mensal</p>
             <LineChart
@@ -498,8 +583,8 @@ watch(() => props.regionId, load)
         <p v-if="region" class="text-xs text-faint">
           <a
             v-if="region.region_id"
-            class="link-underline"
-            :href="`/api/regions/${region.region_id}/indicators`"
+            class="link-underline inline-block py-3"
+            :href="apiUrl(`/api/regions/${region.region_id}/indicators`)"
             target="_blank"
             rel="noopener"
           >

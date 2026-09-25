@@ -371,12 +371,13 @@ cp .env.example .env
 ### Execução
 
 ```bash
-# 1. Sobe Postgres, API e frontend
+# Sobe Postgres, API, frontend e o atualizador automático.
 docker compose up -d
-
-# 2. Popula o banco (ingestão + dbt). ~12 min na primeira vez.
-docker compose run --rm pipeline
 ```
+
+Na primeira subida, com o banco vazio, o serviço `updater` faz a carga
+completa sozinho (~12 min; acompanhe com `docker compose logs -f updater`).
+Para rodar na hora, sem esperar: `docker compose run --rm pipeline`.
 
 Pronto:
 
@@ -410,6 +411,15 @@ cd frontend && npm run dev
 
 Tudo é idempotente. O clima é incremental (retoma do último dia gravado); as
 demais fontes fazem *upsert* sobre chave natural.
+
+**Automático.** O serviço `updater` do Docker Compose (`scripts/scheduler.py`)
+roda clima + dbt todo dia às 06:00 de Brasília e todas as fontes às segundas.
+Horário e dia mudam por `UPDATE_HOUR` e `FULL_UPDATE_WEEKDAY` no `.env`. Não é
+tempo real porque nenhuma fonte é: o dado mais fresco que existe é o clima de
+ontem; crime e saúde saem por mês.
+
+**Produção.** Mesmo ritmo, pelo GitHub Actions (`production-data.yml`)
+gravando no Neon. Ver [docs/deploy.md](docs/deploy.md).
 
 No GitHub Actions, o pipeline completo roda **todo dia 5** — a SSP-DF e o CNES
 publicam mensalmente. Testes unitários e validação de fontes rodam em todo push.

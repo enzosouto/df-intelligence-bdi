@@ -77,5 +77,30 @@ services:
         condition: service_healthy
     command: ["bash", "/app/scripts/run_pipeline.sh"]
 
+  # Atualização automática: sobe junto com `docker compose up -d`.
+  # Clima + dbt todo dia às 6h (Brasília); todas as fontes uma vez por semana.
+  # Banco vazio → carga completa na hora. Acompanhe com:
+  #     docker compose logs -f updater
+  updater:
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
+    container_name: dfi-updater
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-df}:${POSTGRES_PASSWORD:-df_local_password_change_me}@postgres:5432/${POSTGRES_DB:-df_intelligence}
+      WEATHER_START_DATE: ${WEATHER_START_DATE:-2018-01-01}
+      SECURITY_START_YEAR: ${SECURITY_START_YEAR:-2014}
+      HTTP_USER_AGENT: ${HTTP_USER_AGENT:-DFIntelligence/1.0}
+      HTTP_THROTTLE_SECONDS: ${HTTP_THROTTLE_SECONDS:-0.4}
+      UPDATE_HOUR: ${UPDATE_HOUR:-6}
+      FULL_UPDATE_WEEKDAY: ${FULL_UPDATE_WEEKDAY:-0}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["python", "/app/scripts/scheduler.py"]
+
 volumes:
   pgdata:

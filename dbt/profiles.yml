@@ -17,3 +17,5 @@ df_intelligence:
       threads: 4
       keepalives_idle: 0
       connect_timeout: 30
+      # Neon e outros Postgres gerenciados exigem TLS (`?sslmode=require` na URL).
+      sslmode: "{{ env_var('DBT_POSTGRES_SSLMODE', 'prefer') }}"

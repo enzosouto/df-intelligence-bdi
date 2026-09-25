@@ -1,0 +1,15 @@
+# O Vercel publica só o site (frontend/). Sem isto, ele encontra a API FastAPI
+# em api/ e o requirements.txt na raiz, trata o projeto como Python e tenta
+# rodar a API como função serverless — sem banco, cada página vira erro 500.
+# A API roda no Render (render.yaml).
+api/
+ingestion/
+dbt/
+db/
+data/
+scripts/
+tests/
+docs/
+requirements*.txt
+render.yaml
+docker-compose.yml

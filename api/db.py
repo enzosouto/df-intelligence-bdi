@@ -36,14 +36,29 @@ def close_pool() -> None:
         _pool = None
 
 
+def _prepare(conn) -> None:
+    conn.set_session(readonly=True, autocommit=True)
+    with conn.cursor() as probe:
+        probe.execute("select 1")
+
+
 @contextmanager
 def cursor() -> Iterator[RealDictCursor]:
     if _pool is None:
         init_pool()
     assert _pool is not None
     conn = _pool.getconn()
+    # Postgres gerenciado (Neon) desliga o computador ocioso e derruba as
+    # conexões abertas; a do pool só descobre isso ao ser usada. Um `select 1`
+    # antes de entregar troca a conexão morta por uma nova em vez de devolver
+    # erro 500 para quem abriu o site depois de um tempo parado.
     try:
-        conn.set_session(readonly=True, autocommit=True)
+        _prepare(conn)
+    except psycopg2.Error:
+        _pool.putconn(conn, close=True)
+        conn = _pool.getconn()
+        _prepare(conn)
+    try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             yield cur
     finally:

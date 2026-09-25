@@ -9,9 +9,16 @@ name: production-data
 # Render só tem a de leitura.
 #
 # Ritmo:
-#   todo dia 06:00 (Brasília) → clima + dbt (Open-Meteo publica por dia)
-#   segundas                  → todas as fontes (SSP-DF, CNES etc. publicam por mês)
+#   todo dia 06:23 (Brasília) → clima + dbt (Open-Meteo publica por dia)
+#   segundas, 06:23           → todas as fontes (SSP-DF, CNES etc. publicam por mês)
+#   todo dia 12:47 (Brasília) → repescagem: clima + dbt de novo
 # Atualizar mais vezes do que a fonte publica não traz dado novo.
+#
+# Por que minuto quebrado e repescagem: o agendador do GitHub atrasa e às vezes
+# DESCARTA execuções marcadas em hora cheia (pico de carga de todo mundo). Foi
+# o que aconteceu com o "0 9 * * *" original — não rodou. A segunda execução
+# é barata (o clima é incremental: sem dia novo, não grava nada) e cobre o dia
+# em que a primeira for descartada.
 #
 # Segredo necessário (Settings → Secrets and variables → Actions):
 #   PRODUCTION_DATABASE_URL  conexão da role DONA do banco no Neon
@@ -19,7 +26,8 @@ name: production-data
 
 on:
   schedule:
-    - cron: "0 9 * * *" # 09:00 UTC = 06:00 em Brasília
+    - cron: "23 9 * * *" # 09:23 UTC = 06:23 em Brasília
+    - cron: "47 15 * * *" # 15:47 UTC = 12:47 em Brasília (repescagem)
   workflow_dispatch:
     inputs:
       full:
@@ -75,7 +83,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             FULL="${{ inputs.full }}"
-          elif [ "$(date -u +%u)" = "1" ]; then
+          # Carga completa só na execução da manhã de segunda; a repescagem
+          # da tarde fica no clima, para não baixar tudo duas vezes.
+          elif [ "$(date -u +%u)" = "1" ] && [ "$(date -u +%H)" -lt 12 ]; then
             FULL=true
           else
             FULL=false

@@ -27,6 +27,15 @@ import type {
 
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
+/**
+ * Endereço absoluto de um caminho da API, para LINKS (documentação, JSON de
+ * uma região). Em produção a API mora em outro domínio (Render); um href
+ * relativo `/api/...` cairia no próprio site e voltaria a página inicial.
+ */
+export function apiUrl(path: string): string {
+  return `${BASE}${path}`
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

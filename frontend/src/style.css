@@ -41,6 +41,22 @@
     background: #ff006a;
   }
 
+  /* Toque: sem o flash cinza do WebKit (o estado ativo é desenhado pela
+     própria interface) e sem o atraso de 300 ms do duplo toque. */
+  a,
+  button,
+  [role='button'],
+  summary {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* iOS aumenta a fonte sozinho ao girar a tela; o layout já é responsivo. */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   :focus-visible {
     outline: 2px solid #ff006a;
     outline-offset: 2px;
@@ -113,6 +129,11 @@
     flex: none;
     align-self: center;
     background: #ff006a;
+  }
+
+  /* Cabeçalho fixo abaixo do notch quando o app roda instalado (standalone). */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
   }
 
   .link-underline {

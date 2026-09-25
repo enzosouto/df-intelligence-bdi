@@ -57,6 +57,12 @@ export function fullDate(iso: string | null | undefined): string {
   })
 }
 
+/** Data curta para espaço apertado (cabeçalho no celular): "25/09". */
+export function shortDate(iso: string | null | undefined): string {
+  if (!iso) return EMPTY
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
 export function dateTime(iso: string | null | undefined): string {
   if (!iso) return EMPTY
   return new Date(iso).toLocaleString('pt-BR', {

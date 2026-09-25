@@ -82,15 +82,15 @@ onMounted(load)
 
             <dl class="mt-4 space-y-2 text-xs">
               <div class="flex gap-2">
-                <dt class="w-28 shrink-0 text-faint">Acesso</dt>
+                <dt class="w-24 shrink-0 text-faint sm:w-28">Acesso</dt>
                 <dd class="text-muted">{{ source.access_type }}</dd>
               </div>
               <div class="flex gap-2">
-                <dt class="w-28 shrink-0 text-faint">Granularidade</dt>
+                <dt class="w-24 shrink-0 text-faint sm:w-28">Granularidade</dt>
                 <dd class="text-muted">{{ source.granularity }}</dd>
               </div>
               <div class="flex gap-2">
-                <dt class="w-28 shrink-0 text-faint">Endpoint</dt>
+                <dt class="w-24 shrink-0 text-faint sm:w-28">Endpoint</dt>
                 <dd class="min-w-0">
                   <a :href="source.url" target="_blank" rel="noopener" class="link-underline break-all text-muted">
                     {{ source.url }}
@@ -142,7 +142,38 @@ onMounted(load)
           </div>
         </div>
 
-        <div class="card mt-4 overflow-x-auto">
+        <!-- Celular: uma linha por RA, com o que falta em destaque. Uma tabela
+             de 8 colunas rolando de lado esconde justamente a coluna que
+             importa (anos ausentes). -->
+        <ul class="card mt-4 divide-y divide-line/60 md:hidden">
+          <li v-for="item in coverage" :key="item.region_id">
+            <RouterLink
+              :to="`/regiao/${item.region_id}`"
+              class="flex min-h-[56px] items-center gap-3 px-4 py-3 active:bg-elevated"
+            >
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm text-ink">{{ item.region_name }}</span>
+                <span class="mt-1 block font-mono text-[10.5px] leading-relaxed text-faint">
+                  Segurança {{ item.security_years_with_data }}/{{ item.security_years_expected }} anos
+                  · {{ num(item.health_facilities) }} saúde · {{ num(item.education_schools) }} escolas
+                </span>
+                <span
+                  v-if="item.security_missing_years.length || !item.population_2022_available"
+                  class="mt-1 block font-mono text-[10.5px] text-warn"
+                >
+                  <template v-if="!item.population_2022_available">Sem Censo 2022</template>
+                  <template v-if="!item.population_2022_available && item.security_missing_years.length"> · </template>
+                  <template v-if="item.security_missing_years.length">
+                    Sem segurança em {{ item.security_missing_years.join(', ') }}
+                  </template>
+                </span>
+              </span>
+              <span class="text-faint" aria-hidden="true">›</span>
+            </RouterLink>
+          </li>
+        </ul>
+
+        <div class="card mt-4 hidden overflow-x-auto md:block">
           <table class="w-full min-w-[46rem] text-sm">
             <thead>
               <tr class="border-b border-line text-left">
@@ -196,7 +227,26 @@ onMounted(load)
       <!-- Pipeline -->
       <section>
         <h2 class="font-display text-xl font-semibold">Última execução do pipeline</h2>
-        <div class="card mt-5 overflow-x-auto">
+        <ul class="card mt-5 divide-y divide-line/60 md:hidden">
+          <li v-for="run in pipeline" :key="run.source_key" class="px-4 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <span class="font-mono text-[12px] uppercase tracking-[0.08em] text-ink">{{ run.source_key }}</span>
+              <span class="font-mono text-[11px]" :class="run.status === 'SUCCESS' ? 'text-education' : 'text-security'">
+                {{ run.status }}
+              </span>
+            </div>
+            <p class="mt-1 font-mono text-[10.5px] leading-relaxed text-faint">
+              {{ dateTime(run.finished_at) }} · {{ run.duration_seconds ?? '—' }}s ·
+              {{ num(run.rows_written) }} linhas · {{ num(run.requests_made) }} requisições
+            </p>
+            <p v-if="run.failed_error_checks || run.failed_warning_checks" class="mt-1 font-mono text-[10.5px]"
+               :class="run.failed_error_checks ? 'text-security' : 'text-warn'">
+              {{ run.failed_error_checks ? `${run.failed_error_checks} erro(s)` : `${run.failed_warning_checks} aviso(s)` }}
+            </p>
+          </li>
+        </ul>
+
+        <div class="card mt-5 hidden overflow-x-auto md:block">
           <table class="w-full min-w-[42rem] text-sm">
             <thead>
               <tr class="border-b border-line text-left">

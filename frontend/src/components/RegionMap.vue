@@ -10,12 +10,17 @@
  *
  * Regiões sem valor para o indicador escolhido ficam hachuradas, nunca
  * pintadas como se fossem zero.
+ *
+ * Mouse e toque têm gramáticas diferentes. Com mouse, passar por cima mostra
+ * o valor e clicar abre a região. No toque não existe "passar por cima": o
+ * primeiro toque escolhe a RA e mostra nome, valor e um botão para abrir;
+ * navegar direto no toque faria a pessoa sair do mapa sem ter visto o número.
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { gsap } from 'gsap'
 import type { RegionFeature } from '@/types'
 import { EMPTY } from '@/format'
-import { EASE, prefersReducedMotion } from '@/motion'
+import { EASE, hasFinePointer, prefersReducedMotion } from '@/motion'
 
 const props = withDefaults(
   defineProps<{
@@ -32,8 +37,8 @@ const props = withDefaults(
 const emit = defineEmits<{ select: [regionId: string]; hover: [regionId: string | null] }>()
 
 const WIDTH = 920
-const HEIGHT = 720
-const PADDING = 16
+const PADDING = 12
+const fine = hasFinePointer()
 
 const hovered = ref<string | null>(null)
 const pointer = ref({ x: 0, y: 0 })
@@ -67,15 +72,21 @@ const projection = computed(() => {
   const lonScale = Math.cos((((minLat + maxLat) / 2) * Math.PI) / 180)
   const spanX = (maxLon - minLon) * lonScale
   const spanY = maxLat - minLat
-  const scale = Math.min((WIDTH - PADDING * 2) / spanX, (HEIGHT - PADDING * 2) / spanY)
-  const offsetX = (WIDTH - spanX * scale) / 2
-  const offsetY = (HEIGHT - spanY * scale) / 2
+  // A altura segue o formato do DF (mais largo que alto). Uma prancheta de
+  // altura fixa deixava faixas vazias em cima e embaixo — no celular, meia
+  // tela de fundo preto antes da legenda.
+  const scale = (WIDTH - PADDING * 2) / (spanX || 1)
+  const height = Math.round(spanY * scale + PADDING * 2) || 720
 
-  return (lon: number, lat: number): [number, number] => [
-    offsetX + (lon - minLon) * lonScale * scale,
-    offsetY + (maxLat - lat) * scale,
-  ]
+  return {
+    height,
+    project: (lon: number, lat: number): [number, number] => [
+      PADDING + (lon - minLon) * lonScale * scale,
+      PADDING + (maxLat - lat) * scale,
+    ],
+  }
 })
+const HEIGHT = computed(() => projection.value.height)
 
 /** Escala por posto (quantil), robusta a outliers como o SIA. */
 const scaleByRank = computed(() => {
@@ -103,7 +114,7 @@ const shapes = computed(() =>
       name: feature.properties.region_name,
       value,
       // Só para ordenar a cascata de oeste para leste na troca de métrica.
-      cx: projection.value(centroidLon, 0)[0],
+      cx: projection.value.project(centroidLon, 0)[0],
       // Piso de 0,14: abaixo disso a RA de menor valor some no fundo carvão.
       fillOpacity: value === null ? 0 : 0.14 + intensity * 0.76,
       path: ringsOf(feature)
@@ -111,7 +122,7 @@ const shapes = computed(() =>
           (ring) =>
             ring
               .map(([lon, lat], index) => {
-                const [x, y] = projection.value(lon, lat)
+                const [x, y] = projection.value.project(lon, lat)
                 return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
               })
               .join('') + 'Z',
@@ -158,11 +169,29 @@ watch(
 )
 
 function onEnter(id: string) {
+  if (!fine) return
   hovered.value = id
   emit('hover', id)
 }
 
 function onLeave() {
+  if (!fine) return
+  hovered.value = null
+  emit('hover', null)
+}
+
+/** Mouse abre direto; toque escolhe primeiro (segundo toque na mesma RA abre). */
+function onActivate(id: string, event: MouseEvent | KeyboardEvent) {
+  const byTouch = !fine && event instanceof MouseEvent
+  if (byTouch && hovered.value !== id) {
+    hovered.value = id
+    emit('hover', id)
+    return
+  }
+  emit('select', id)
+}
+
+function clearPick() {
   hovered.value = null
   emit('hover', null)
 }
@@ -215,7 +244,7 @@ function onMove(event: MouseEvent) {
           @mouseenter="onEnter(shape.id)"
           @focus="onEnter(shape.id)"
           @blur="onLeave"
-          @click="emit('select', shape.id)"
+          @click="onActivate(shape.id, $event)"
           @keydown.enter.prevent="emit('select', shape.id)"
           @keydown.space.prevent="emit('select', shape.id)"
         />
@@ -229,7 +258,7 @@ function onMove(event: MouseEvent) {
       leave-to-class="opacity-0"
     >
       <div
-        v-if="hoveredShape"
+        v-if="hoveredShape && fine"
         class="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-[calc(100%+14px)]
                whitespace-nowrap border border-line bg-elevated px-3 py-2"
         :style="{ left: `${pointer.x}px`, top: `${pointer.y}px` }"
@@ -244,7 +273,45 @@ function onMove(event: MouseEvent) {
       </div>
     </Transition>
 
-    <div class="mt-5 flex flex-wrap items-center gap-6">
+    <!-- Toque: a RA escolhida vira uma barra fixa sob o mapa, com o botão de
+         abrir do tamanho de um polegar. -->
+    <div
+      v-if="!fine"
+      class="mt-3 flex min-h-[56px] items-center gap-3 border border-line bg-elevated px-3 py-2"
+      aria-live="polite"
+    >
+      <template v-if="hoveredShape">
+        <div class="min-w-0 flex-1">
+          <p class="truncate font-mono text-[11px] uppercase tracking-[0.12em] text-ink">
+            {{ hoveredShape.name }}
+          </p>
+          <p class="font-display text-base font-semibold tnum" style="font-stretch: 112%">
+            <span v-if="hoveredShape.value === null" class="text-warn">Sem dado publicado</span>
+            <span v-else :style="{ color }">{{ formatValue(hoveredShape.value) }}</span>
+          </p>
+        </div>
+        <button
+          type="button"
+          class="flex h-11 w-11 shrink-0 items-center justify-center text-faint"
+          aria-label="Limpar seleção"
+          @click="clearPick"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+        <button
+          type="button"
+          class="h-11 shrink-0 bg-accent px-4 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-night"
+          @click="emit('select', hoveredShape.id)"
+        >
+          Abrir →
+        </button>
+      </template>
+      <p v-else class="font-mono text-[11px] uppercase tracking-[0.1em] text-faint">
+        Toque numa região para ver o valor
+      </p>
+    </div>
+
+    <div class="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">
       <div class="flex items-center gap-2">
         <span class="label">menor</span>
         <div class="flex gap-px">

@@ -20,7 +20,7 @@
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { gsap } from 'gsap'
-import { pointer, prefersReducedMotion } from '@/motion'
+import { hasFinePointer, pointer, prefersReducedMotion } from '@/motion'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 
@@ -126,10 +126,23 @@ function tick() {
   draw(elapsed)
 }
 
+/**
+ * Em tela de toque a grade é desenhada uma vez e fica parada. Sem cursor, o
+ * efeito que reage a ele não existe; a passada e as piscadas custariam um
+ * redesenho de tela cheia a 60 quadros por segundo — bateria e aquecimento
+ * no celular por um enfeite de fundo.
+ */
+const still = prefersReducedMotion() || !hasFinePointer()
+
+function onResize() {
+  resize()
+  if (still) draw(0)
+}
+
 onMounted(() => {
   resize()
-  window.addEventListener('resize', resize, { passive: true })
-  if (prefersReducedMotion()) {
+  window.addEventListener('resize', onResize, { passive: true })
+  if (still) {
     draw(0)
     return
   }
@@ -138,7 +151,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   gsap.ticker.remove(tick)
-  window.removeEventListener('resize', resize)
+  window.removeEventListener('resize', onResize)
 })
 </script>
 

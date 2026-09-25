@@ -92,7 +92,7 @@ onMounted(async () => {
     leave-to-class="opacity-0"
   >
     <div
-      v-if="apiWaking"
+      v-if="apiWaking && !booting"
       role="status"
       class="fixed inset-x-4 top-[calc(4rem+env(safe-area-inset-top))] z-[210] mx-auto max-w-md border
              border-warn/50 bg-elevated px-4 py-3 font-mono text-[11px] leading-relaxed text-muted sm:top-6"

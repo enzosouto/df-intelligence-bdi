@@ -259,5 +259,19 @@ watch(
         <span class="text-faint"> · Analista de dados</span>
       </p>
     </div>
+
+    <!-- Aviso fixo no canto: a API roda no plano gratuito do Render, que
+         desliga o servidor quando ninguém usa. A primeira visita espera ele
+         ligar — sem este aviso, a espera parece travamento. -->
+    <p
+      class="absolute inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] mx-auto max-w-sm border
+             border-warn/40 bg-elevated/90 px-3 py-2.5 text-left font-mono text-[10.5px] leading-relaxed
+             text-muted sm:inset-x-auto sm:bottom-6 sm:right-6 sm:mx-0"
+    >
+      <span class="mr-1.5 inline-block h-1.5 w-1.5 bg-warn align-middle" aria-hidden="true" />
+      <span class="text-warn">A conexão com a API pode demorar.</span>
+      O servidor é gratuito e desliga quando ninguém está usando; na primeira visita ele leva até
+      1 minuto para ligar.
+    </p>
   </div>
 </template>

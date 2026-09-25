@@ -151,36 +151,6 @@ export const reveal: Directive<HTMLElement> = {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Reação ao cursor                                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * O painel acende onde o cursor está.
- *
- * Um listener delegado no documento em vez de uma diretiva por painel: o
- * `closest('.card')` já encontra qualquer painel, inclusive os que forem
- * montados depois, e o template não precisa marcar nada. Grava a posição em
- * duas variáveis CSS e deixa o desenho do brilho para o CSS — um
- * `setProperty` por evento é mais barato e mais fluido que criar tweens que se
- * cancelam a cada movimento de mouse.
- */
-export function bindPanelLight(): void {
-  if (typeof document === 'undefined' || !hasFinePointer() || prefersReducedMotion()) return
-  document.addEventListener(
-    'pointermove',
-    (event) => {
-      const panel = (event.target as Element | null)?.closest?.('.card') as HTMLElement | null
-      if (!panel) return
-      const box = panel.getBoundingClientRect()
-      panel.style.setProperty('--mx', `${event.clientX - box.left}px`)
-      panel.style.setProperty('--my', `${event.clientY - box.top}px`)
-      panel.dataset.lit = 'on'
-    },
-    { passive: true },
-  )
-}
-
-/* -------------------------------------------------------------------------- */
 /* Números                                                                     */
 /* -------------------------------------------------------------------------- */
 

@@ -73,29 +73,15 @@
     @apply p-4 sm:p-6;
   }
 
-  /* O painel acende onde o cursor está. A luz é a do destaque, a mesma cor
-     do foco — quem aponta e quem tabula recebem o mesmo sinal. */
-  .card[data-lit='on']::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-    background: radial-gradient(
-      16rem 16rem at var(--mx, 50%) var(--my, 50%),
-      rgba(255, 0, 106, 0.14),
-      transparent 72%
-    );
-  }
-  .card[data-lit='on']:hover::after {
-    opacity: 1;
-  }
-  .card[data-lit='on'] {
-    transition: border-color 0.4s ease;
-  }
-  .card[data-lit='on']:hover {
-    border-color: rgba(255, 0, 106, 0.45);
+  /* O painel sob o cursor ganha a borda do destaque, a mesma cor do foco —
+     quem aponta e quem tabula recebem o mesmo sinal. Só com mouse de verdade. */
+  @media (pointer: fine) {
+    .card {
+      transition: border-color 0.4s ease;
+    }
+    .card:hover {
+      border-color: rgba(255, 0, 106, 0.45);
+    }
   }
 
   /* Cota de desenho: a etiqueta que nomeia a medida, não a decora. */

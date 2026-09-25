@@ -3,7 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { api } from '@/api'
 import { dateTime } from '@/format'
-import { bindPanelLight, bindPointer, hasFinePointer, prefersReducedMotion } from '@/motion'
+import { bindPointer, hasFinePointer, prefersReducedMotion } from '@/motion'
 import AppLoader from '@/components/AppLoader.vue'
 import BackgroundField from '@/components/BackgroundField.vue'
 import Malha from '@/components/Malha.vue'
@@ -33,7 +33,6 @@ const NAV = [
 
 onMounted(async () => {
   bindPointer()
-  bindPanelLight()
   // Falha aqui não pode derrubar o cabeçalho: o miolo da página tem o seu
   // próprio estado de erro, com botão de tentar de novo.
   const [overview, coverageList] = await Promise.allSettled([api.overview(), api.coverage()])

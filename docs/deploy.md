@@ -23,7 +23,7 @@ Três serviços gerenciados, cada um com uma função e a menor permissão poss�
 | Banco | Neon, `us-east-2` (Ohio) | — | — |
 | Carga dos dados | GitHub Actions | `PRODUCTION_DATABASE_URL` (secret, role dona) | escrever |
 | API | Render, região `ohio`, `render.yaml` | `DATABASE_URL` da role `api_reader` | só ler `marts` |
-| Site | Vercel, raiz `frontend/`, `frontend/vercel.json` | nenhuma | — |
+| Site | Vercel, `vercel.json` + `.vercelignore` na raiz | nenhuma | — |
 
 **Por que a carga roda no GitHub e não no Render:** os portais do GDF recusam
 conexões de fora do Brasil de forma irregular, e os runners do GitHub já
@@ -80,14 +80,15 @@ Confira: `https://<servico>.onrender.com/api/health-check`.
 
 ### 4. Vercel — site
 
-*Add New → Project*, escolha o repositório.
+*Add New → Project*, escolha o repositório e clique em *Deploy*, sem mudar
+nada. O `vercel.json` da raiz faz o build de `frontend/`, já aponta para a API
+no Render e define rotas do Vue, cache e headers. O `.vercelignore` tira do
+upload a API e o pipeline: sem ele, o Vercel acha o FastAPI em `api/`, trata o
+projeto como Python e cada página vira erro 500.
 
-- **Root Directory:** `frontend`
-- **Environment Variable:** `VITE_API_BASE_URL` = `https://<servico>.onrender.com`
-
-O `frontend/vercel.json` cuida do resto (build, rotas do Vue, cache, headers).
-Depois do primeiro deploy, confira se `API_CORS_ORIGINS` no Render bate com o
-domínio final do Vercel.
+Se o nome do serviço no Render for outro, troque a URL em `buildCommand` do
+`vercel.json`. O domínio final do Vercel precisa estar em `API_CORS_ORIGINS`
+no Render.
 
 ## Custos e limites (planos gratuitos)
 

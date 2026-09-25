@@ -9,7 +9,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   (`scripts/scheduler.py`): clima + dbt todo dia às 06:00 de Brasília, todas
   as fontes às segundas; banco vazio dispara a carga completa na hora.
 - **Deploy** (`docs/deploy.md`): Neon (banco), Render (API, `render.yaml`),
-  Vercel (site, `frontend/vercel.json`) e `production-data.yml` no GitHub
+  Vercel (site, `vercel.json` + `.vercelignore`) e `production-data.yml` no GitHub
   Actions gravando no banco de produção no mesmo ritmo.
 - Role `api_reader` só de leitura para a API; os GRANTs são refeitos pelo dbt
   a cada tabela recriada (`macros/grant_api_reader.sql`).

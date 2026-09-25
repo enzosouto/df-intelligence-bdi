@@ -4,7 +4,32 @@
   "installCommand": "cd frontend && npm ci",
   "buildCommand": "cd frontend && VITE_API_BASE_URL=https://df-intelligence-api.onrender.com npm run build",
   "outputDirectory": "frontend/dist",
+  "regions": [
+    "cle1"
+  ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 20,
+      "excludeFiles": "{frontend/**,ingestion/**,dbt/**,db/**,data/**,docs/**,tests/**,scripts/**,.github/**}"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/docs",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/redoc",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api/index"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

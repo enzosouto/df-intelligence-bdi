@@ -1,4 +1,4 @@
-"""Ponto de entrada da API para uvicorn (Docker, CI, Render, testes).
+"""Ponto de entrada da API para uvicorn (Docker, CI, testes).
 
     uvicorn api.main:app
 

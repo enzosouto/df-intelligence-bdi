@@ -10,6 +10,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
   RAs quando o link é colado no WhatsApp, LinkedIn, X ou iMessage. Gerada por
   `scripts/og_image.py` a partir da API.
 
+### Mudado
+- **API saiu do Render e foi para o Vercel**, como função Python no mesmo
+  domínio do site (`api/index.py`, região `cle1`, junto do Neon). O Render
+  gratuito hibernou a API e não a religou; no Vercel a partida a frio é de
+  ~1 s. Sem CORS, CSP só com `'self'`, `render.yaml` removido.
+- `/api/health-check` diz a categoria da falha de banco (variável ausente,
+  senha recusada, tempo esgotado…), sem expor a URL.
+- Tela de carregamento sem o aviso de "até 1 minuto": deixou de ser verdade.
+
 ### Corrigido (produção)
 - A atualização diária agendada para 09:00 UTC não rodou: o GitHub atrasa e
   descarta crons em hora cheia. Agora roda às 06:23 de Brasília, com

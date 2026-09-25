@@ -4,6 +4,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Corrigido (produção)
+- "Não foi possível falar com a API" na primeira visita depois de um tempo
+  parado: a API gratuita do Render dorme e responde 502/503 sem CORS enquanto
+  acorda. O cliente tenta de novo com espera crescente por até ~75 s e mostra
+  o aviso "Ligando o servidor".
+- Previews do Vercel (um domínio por deploy) eram barrados pelo CORS:
+  `API_CORS_ORIGIN_REGEX` libera só os domínios do projeto.
+
 ### Mobile
 - **Página vazava para ~605px num celular de 390px** (o grid do mapa sem
   coluna explícita aceitava a largura da faixa de botões). Em todas as páginas

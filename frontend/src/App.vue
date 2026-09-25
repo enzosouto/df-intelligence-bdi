@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { api, apiUrl } from '@/api'
+import { api, apiUrl, apiWaking } from '@/api'
 import { dateTime, shortDate } from '@/format'
 import { bindPointer, hasFinePointer, prefersReducedMotion } from '@/motion'
 import AppLoader from '@/components/AppLoader.vue'
@@ -81,6 +81,27 @@ onMounted(async () => {
   >
     Pular para o conteúdo
   </a>
+
+  <!-- Aviso de API acordando: a primeira visita depois de um tempo parado
+       espera o servidor gratuito ligar. Explicar a espera evita que a pessoa
+       ache que o site quebrou e vá embora. -->
+  <Transition
+    enter-active-class="transition duration-200"
+    enter-from-class="opacity-0 -translate-y-2"
+    leave-active-class="transition duration-200"
+    leave-to-class="opacity-0"
+  >
+    <div
+      v-if="apiWaking"
+      role="status"
+      class="fixed inset-x-4 top-[calc(4rem+env(safe-area-inset-top))] z-[210] mx-auto max-w-md border
+             border-warn/50 bg-elevated px-4 py-3 font-mono text-[11px] leading-relaxed text-muted sm:top-6"
+    >
+      <span class="mr-2 inline-block h-1.5 w-1.5 animate-blink bg-warn align-middle" aria-hidden="true" />
+      <span class="text-warn">Ligando o servidor.</span>
+      A API gratuita dorme depois de 15 min sem acesso e leva até 1 minuto para acordar.
+    </div>
+  </Transition>
 
   <div class="min-h-screen">
     <header class="safe-top sticky top-0 z-40 border-b border-line bg-night/90 backdrop-blur-sm">

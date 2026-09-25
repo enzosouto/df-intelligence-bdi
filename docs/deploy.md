@@ -74,7 +74,8 @@ Preencha:
 | Variável | Valor |
 |---|---|
 | `DATABASE_URL` | `postgresql://api_reader:<senha>@<host-sem-pooler>/neondb?sslmode=require` |
-| `API_CORS_ORIGINS` | domínio do site, ex. `https://df-intelligence.vercel.app` |
+| `API_CORS_ORIGINS` | domínio do site, ex. `https://df-intelligence-bdi.vercel.app` |
+| `API_CORS_ORIGIN_REGEX` | já vem no `render.yaml`: libera os previews do Vercel |
 
 Confira: `https://<servico>.onrender.com/api/health-check`.
 
@@ -93,7 +94,8 @@ no Render.
 ## Custos e limites (planos gratuitos)
 
 - **Render free** hiberna após 15 min sem acesso; a primeira visita depois
-  disso leva ~30–60 s (o site mostra a tela de carregamento). O plano Starter
+  disso leva ~30–60 s. O site tenta de novo sozinho por até ~75 s e mostra o
+  aviso "Ligando o servidor" em vez de erro. O plano Starter
   (US$ 7/mês) mantém a API sempre ligada.
 - **Neon free**: 0,5 GB (o banco usa bem menos) e computação que suspende
   sozinha; a API troca a conexão derrubada por uma nova sem erro.

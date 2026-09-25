@@ -29,5 +29,8 @@ services:
       # Domínio do site no Vercel, ex.: https://df-intelligence.vercel.app
       - key: API_CORS_ORIGINS
         sync: false
+      # Previews do Vercel (um domínio por deploy). Dados públicos, só GET.
+      - key: API_CORS_ORIGIN_REGEX
+        value: ^https://df-intelligence(-[a-z0-9]+)*-enzos-projects-a7fcb69e\.vercel\.app$
       - key: DB_POOL_MAX
         value: "5"

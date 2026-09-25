@@ -37,9 +37,9 @@ const securityChart = computed<Series[]>(() => {
   const crimes = security.value.filter((point) => point.metric_type === 'CRIME')
   const months = [...new Set(crimes.map((point) => point.reference_month_start))].sort()
   const categories = [
-    { code: 'CVLI', label: 'CVLI', color: '#FF6B81' },
-    { code: 'CCP', label: 'Patrimônio', color: '#F5A524' },
-    { code: 'OUTROS', label: 'Outros', color: '#4CC2FF' },
+    { code: 'CVLI', label: 'CVLI', color: '#FF006A' },
+    { code: 'CCP', label: 'Patrimônio', color: '#FF9A3D' },
+    { code: 'OUTROS', label: 'Outros', color: '#00D4FF' },
   ]
   return categories.map((category) => {
     const byMonth = new Map(
@@ -60,10 +60,10 @@ const securityChart = computed<Series[]>(() => {
 // em 8 dos 12 anos, o arquivo de matrículas da SEEDF omite escolas ativas do cadastro.
 const educationChart = computed<Series[]>(() => {
   const stages = [
-    { key: 'early_childhood', label: 'Educação infantil', color: '#C3E86B' },
-    { key: 'elementary', label: 'Fundamental', color: '#4CC2FF' },
-    { key: 'high_school_all', label: 'Médio (com integrado)', color: '#A98BFF' },
-    { key: 'youth_adult', label: 'EJA', color: '#F5A524' },
+    { key: 'early_childhood', label: 'Educação infantil', color: '#7CFFB2' },
+    { key: 'elementary', label: 'Fundamental', color: '#00D4FF' },
+    { key: 'high_school_all', label: 'Médio (com integrado)', color: '#A86BFF' },
+    { key: 'youth_adult', label: 'EJA', color: '#FF9A3D' },
   ] as const
   return stages.map((stage) => ({
     key: stage.key,
@@ -78,7 +78,7 @@ const bikewayParts = computed(() => {
   const region = mobility.value
   if (!region) return []
   return [
-    { key: 'seg', label: 'Ciclovia', value: region.bikeway_km_segregated, color: '#FF8A4C' },
+    { key: 'seg', label: 'Ciclovia', value: region.bikeway_km_segregated, color: '#FF9A3D' },
     { key: 'paint', label: 'Ciclofaixa', value: region.bikeway_km_painted, color: '#FFB38A' },
     { key: 'shared', label: 'Calçada compartilhada', value: region.bikeway_km_shared, color: '#98A2B3' },
     { key: 'other', label: 'Outros', value: region.bikeway_km_other, color: '#5D6675' },
@@ -95,7 +95,7 @@ const bikewayChart = computed<Series[]>(() => [
   {
     key: 'bikeway',
     label: 'Km acumulados (malha atual)',
-    color: '#FF8A4C',
+    color: '#FF9A3D',
     points: bikeways.value.map((year) => ({
       x: String(year.construction_year),
       y: year.current_network_km_cumulative,
@@ -107,7 +107,7 @@ const weatherChart = computed<Series[]>(() => [
   {
     key: 'tmax',
     label: 'Máxima média',
-    color: '#F5A524',
+    color: '#FF9A3D',
     points: weather.value.map((point) => ({
       x: point.reference_month_start,
       y: point.temp_max_avg_c,
@@ -117,7 +117,7 @@ const weatherChart = computed<Series[]>(() => [
   {
     key: 'tmin',
     label: 'Mínima média',
-    color: '#A98BFF',
+    color: '#A86BFF',
     points: weather.value.map((point) => ({
       x: point.reference_month_start,
       y: point.temp_min_avg_c,
@@ -130,7 +130,7 @@ const rainChart = computed<Series[]>(() => [
   {
     key: 'rain',
     label: 'Precipitação',
-    color: '#4CC2FF',
+    color: '#00D4FF',
     points: weather.value.map((point) => ({
       x: point.reference_month_start,
       y: point.precipitation_mm,
@@ -187,7 +187,7 @@ watch(() => props.regionId, load)
     <LoadState :loading="loading" :error="error" @retry="load">
       <template v-if="region">
         <!-- Identidade -->
-        <header class="animate-fade-up">
+        <header>
           <p class="label">Região Administrativa · {{ region.region_id }}</p>
           <h1 class="mt-2 font-display text-4xl font-bold tracking-tight sm:text-5xl">
             {{ region.region_name }}
@@ -203,17 +203,17 @@ watch(() => props.regionId, load)
         <!-- Indicadores principais -->
         <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div class="card card-pad">
-            <p class="label" style="color: #5ee6c5">População</p>
+            <p class="label" style="color: #ffffff">População</p>
             <p class="metric mt-2">{{ num(region.population_2022) }}</p>
             <p class="mt-2 text-xs text-faint">Censo 2022 (IBGE)</p>
           </div>
           <div class="card card-pad">
-            <p class="label" style="color: #5ee6c5">Densidade</p>
+            <p class="label" style="color: #ffffff">Densidade</p>
             <p class="metric mt-2">{{ dec(region.density_2022_per_km2, 0) }}</p>
             <p class="mt-2 text-xs text-faint">hab/km² · área de {{ dec(region.area_km2, 1) }} km²</p>
           </div>
           <div class="card card-pad">
-            <p class="label" style="color: #ff6b81">Segurança</p>
+            <p class="label" style="color: #ff006a">Segurança</p>
             <p class="metric mt-2">{{ num(region.crimes_total) }}</p>
             <p class="mt-2 text-xs text-faint">
               <template v-if="region.security_reference_year">
@@ -224,14 +224,14 @@ watch(() => props.regionId, load)
             </p>
           </div>
           <div class="card card-pad">
-            <p class="label" style="color: #4cc2ff">Saúde</p>
+            <p class="label" style="color: #00d4ff">Saúde</p>
             <p class="metric mt-2">{{ num(region.health_facilities) }}</p>
             <p class="mt-2 text-xs text-faint">
               estabelecimentos · {{ num(region.health_facilities_sus_ambulatory) }} com atendimento ambulatorial SUS
             </p>
           </div>
           <div class="card card-pad">
-            <p class="label" style="color: #c3e86b">Educação</p>
+            <p class="label" style="color: #7cffb2">Educação</p>
             <p class="metric mt-2">{{ num(region.education_schools) }}</p>
             <p class="mt-2 text-xs text-faint">
               escolas · {{ num(region.education_enrollment) }} matrículas
@@ -239,14 +239,14 @@ watch(() => props.regionId, load)
             </p>
           </div>
           <div class="card card-pad">
-            <p class="label" style="color: #ff8a4c">Mobilidade</p>
+            <p class="label" style="color: #ff9a3d">Mobilidade</p>
             <p class="metric mt-2">{{ dec(region.bikeway_km, 1) }}<span class="text-base text-muted"> km</span></p>
             <p class="mt-2 text-xs text-faint">
               de malha cicloviária · {{ num(region.metro_stations) }} estações de metrô
             </p>
           </div>
           <div class="card card-pad">
-            <p class="label" style="color: #a98bff">Clima</p>
+            <p class="label" style="color: #a86bff">Clima</p>
             <p class="metric mt-2">{{ temperature(region.temp_mean_c) }}</p>
             <p class="mt-2 text-xs text-faint">
               média {{ region.weather_first_year }}–{{ region.weather_last_year }} ·
@@ -257,7 +257,7 @@ watch(() => props.regionId, load)
 
         <!-- População: o ponto onde é mais fácil concluir errado -->
         <section class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">População nos Censos</h2>
+          <h2 class="section-title">População nos Censos</h2>
           <div class="mt-5 flex flex-wrap items-end gap-x-10 gap-y-5">
             <div>
               <p class="label">Censo 2010</p>
@@ -276,7 +276,7 @@ watch(() => props.regionId, load)
               <p
                 class="mt-1 font-display text-2xl font-semibold tnum"
                 :style="{
-                  color: (region.population_change_pct_2010_2022 ?? 0) >= 0 ? '#5EE6C5' : '#FF6B81',
+                  color: (region.population_change_pct_2010_2022 ?? 0) >= 0 ? '#FFFFFF' : '#FF006A',
                 }"
               >
                 {{ pct(region.population_change_pct_2010_2022) }}
@@ -311,7 +311,7 @@ watch(() => props.regionId, load)
         <section class="card card-pad">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 class="font-display text-lg font-semibold">Ocorrências por mês</h2>
+              <h2 class="section-title">Ocorrências por mês</h2>
               <p class="mt-1 text-xs text-faint">Balanço Criminal da SSP-DF, a partir de 2018</p>
             </div>
             <div v-if="region.police_activity_total" class="text-right">
@@ -349,7 +349,7 @@ watch(() => props.regionId, load)
 
         <!-- Saúde -->
         <section v-if="health" class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">Rede de saúde instalada</h2>
+          <h2 class="section-title">Rede de saúde instalada</h2>
           <p class="mt-1 text-xs text-faint">Cadastro Nacional de Estabelecimentos de Saúde</p>
 
           <dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
@@ -380,7 +380,7 @@ watch(() => props.regionId, load)
 
         <!-- Educação -->
         <section v-if="education.length" class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">Matrículas por etapa</h2>
+          <h2 class="section-title">Matrículas por etapa</h2>
           <p class="mb-5 mt-1 text-xs text-faint">
             Censo Escolar · todas as redes · escolas localizadas nesta RA
           </p>
@@ -413,7 +413,7 @@ watch(() => props.regionId, load)
 
         <!-- Mobilidade -->
         <section v-if="mobility" class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">Mobilidade</h2>
+          <h2 class="section-title">Mobilidade</h2>
           <p class="mt-1 text-xs text-faint">
             Malha cicloviária e metrô · IDE-DF · trechos recortados pela divisa da RA
           </p>
@@ -432,7 +432,7 @@ watch(() => props.regionId, load)
 
           <div v-if="mobility.bikeway_km > 0" class="mt-6">
             <p class="label mb-2">Tipo de infraestrutura</p>
-            <div class="flex h-2.5 overflow-hidden rounded-full bg-elevated">
+            <div class="flex h-2.5 bg-elevated">
               <div
                 v-for="part in bikewayParts"
                 :key="part.key"
@@ -441,7 +441,7 @@ watch(() => props.regionId, load)
             </div>
             <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
               <span v-for="part in bikewayParts" :key="part.key" class="inline-flex items-center gap-1.5">
-                <span class="inline-block h-2 w-2 rounded-full" :style="{ background: part.color }" />
+                <span class="inline-block h-2 w-2" :style="{ background: part.color }" />
                 {{ part.label }} {{ dec(part.value, 1) }} km
               </span>
             </p>
@@ -462,7 +462,7 @@ watch(() => props.regionId, load)
         <!-- Clima -->
         <section class="grid gap-6 lg:grid-cols-2">
           <div class="card card-pad">
-            <h2 class="font-display text-lg font-semibold">Temperatura</h2>
+            <h2 class="section-title">Temperatura</h2>
             <p class="mb-5 mt-1 text-xs text-faint">
               Máxima e mínima médias por mês · ERA5/Open-Meteo
             </p>
@@ -475,7 +475,7 @@ watch(() => props.regionId, load)
             />
           </div>
           <div class="card card-pad">
-            <h2 class="font-display text-lg font-semibold">Chuva</h2>
+            <h2 class="section-title">Chuva</h2>
             <p class="mb-5 mt-1 text-xs text-faint">Acumulado mensal</p>
             <LineChart
               :series="rainChart"

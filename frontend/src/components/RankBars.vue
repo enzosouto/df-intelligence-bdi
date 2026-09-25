@@ -1,7 +1,16 @@
 <script setup lang="ts">
-/** Ranking horizontal. Linhas sem valor aparecem como "sem dado", não como zero. */
-import { computed } from 'vue'
+/**
+ * Ranking horizontal. Linha sem valor nunca vira zero: sai do ranking e é
+ * listada por nome embaixo, para que a ausência tenha endereço.
+ *
+ * As barras crescem da esquerda em cascata a cada troca de métrica — a mesma
+ * gramática de movimento das réguas do resto da página. Ver a cascata é ver a
+ * ordem mudar; um corte seco esconderia que a lista foi reordenada.
+ */
+import { computed, nextTick, ref, watch } from 'vue'
+import { gsap } from 'gsap'
 import { EMPTY } from '@/format'
+import { EASE, prefersReducedMotion } from '@/motion'
 
 const props = withDefaults(
   defineProps<{
@@ -12,7 +21,7 @@ const props = withDefaults(
     limit?: number
   }>(),
   {
-    color: '#5EE6C5',
+    color: '#FFFFFF',
     formatValue: (value: number) => value.toLocaleString('pt-BR'),
     selectedId: null,
     limit: 12,
@@ -20,6 +29,8 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{ select: [id: string] }>()
+
+const root = ref<HTMLElement | null>(null)
 
 const ranked = computed(() => {
   const withValue = props.items.filter((item) => item.value !== null)
@@ -31,44 +42,69 @@ const ranked = computed(() => {
 })
 
 const missing = computed(() => props.items.filter((item) => item.value === null))
+
+watch(
+  ranked,
+  async () => {
+    if (prefersReducedMotion()) return
+    await nextTick()
+    const bars = root.value?.querySelectorAll<HTMLElement>('[data-bar]')
+    if (!bars?.length) return
+    gsap.fromTo(
+      bars,
+      { scaleX: 0 },
+      {
+        scaleX: 1,
+        duration: 0.55,
+        ease: EASE,
+        transformOrigin: 'left center',
+        stagger: 0.025,
+      },
+    )
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
-  <div>
-    <ul class="space-y-1">
-      <li v-for="(item, index) in ranked" :key="item.id">
+  <div ref="root">
+    <ul>
+      <li v-for="(item, index) in ranked" :key="item.id" class="border-b border-line/60 last:border-0">
         <button
           type="button"
-          class="group grid w-full grid-cols-[1.4rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg
-                 px-2 py-1.5 text-left transition-colors hover:bg-elevated
-                 focus:outline-none focus-visible:ring-1 focus-visible:ring-line"
+          class="group grid w-full grid-cols-[1.6rem_minmax(0,1fr)_auto] items-center gap-3
+                 py-2 text-left transition-colors hover:bg-elevated"
           :class="selectedId === item.id ? 'bg-elevated' : ''"
           @click="emit('select', item.id)"
         >
-          <span class="tnum text-[11px] text-faint">{{ index + 1 }}</span>
+          <span class="font-mono text-[10px] text-accent tnum">
+            {{ String(index + 1).padStart(2, '0') }}
+          </span>
           <span class="min-w-0">
             <span class="flex items-baseline justify-between gap-3">
-              <span class="truncate text-sm text-ink">{{ item.label }}</span>
-              <span v-if="item.hint" class="shrink-0 text-[11px] text-faint">{{ item.hint }}</span>
+              <span class="truncate text-[13px] text-ink">{{ item.label }}</span>
+              <span v-if="item.hint" class="shrink-0 font-mono text-[10px] text-faint">
+                {{ item.hint }}
+              </span>
             </span>
-            <span class="mt-1 block h-1.5 overflow-hidden rounded-full bg-elevated">
+            <span class="mt-1.5 block h-[3px] bg-elevated">
               <span
-                class="block h-full rounded-full transition-[width] duration-500"
-                :style="{ width: `${Math.max(item.ratio * 100, 2)}%`, background: color }"
+                data-bar
+                class="block h-full"
+                :style="{ width: `${Math.max(item.ratio * 100, 1.5)}%`, background: color }"
               />
             </span>
           </span>
-          <span class="tnum text-sm text-muted group-hover:text-ink">
+          <span class="font-mono text-[12px] text-muted tnum group-hover:text-ink">
             {{ formatValue(item.value as number) }}
           </span>
         </button>
       </li>
     </ul>
 
-    <p v-if="missing.length" class="mt-3 text-[11px] text-faint">
-      {{ missing.length }}
-      {{ missing.length === 1 ? 'região sem dado publicado' : 'regiões sem dado publicado' }}
-      ({{ EMPTY }}): {{ missing.map((item) => item.label).join(', ') }}
+    <p v-if="missing.length" class="mt-4 border-l-2 border-line pl-3 text-[11px] leading-relaxed text-faint">
+      <span class="label mr-1.5">Sem dado ({{ EMPTY }})</span>
+      {{ missing.map((item) => item.label).join(' · ') }}
     </p>
   </div>
 </template>

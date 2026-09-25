@@ -18,4 +18,16 @@ export default defineConfig({
       },
     },
   },
+  // `npm run preview` serve o build de produção numa porta própria, para
+  // conferir o bundle sem derrubar o container que já ocupa a 5173. Precisa do
+  // proxy também: o `preview` não herda o do `server`.
+  preview: {
+    port: 5174,
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

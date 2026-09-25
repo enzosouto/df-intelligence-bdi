@@ -79,6 +79,14 @@ education as (
     from {{ ref('mart_education_yearly') }}
     where scope = 'RA'
     group by region_id
+),
+
+-- Mobilidade estava fora desta tabela enquanto o produto já publicava o
+-- domínio: uma RA sem ciclovia mapeada aparecia como coberta. Cobertura que
+-- omite domínio é o erro que este modelo existe para não cometer.
+mobility as (
+    select region_id, bikeway_km, metro_stations
+    from {{ ref('mart_mobility_region') }}
 )
 
 select
@@ -99,9 +107,23 @@ select
     coalesce(education.schools_latest, 0)                    as education_schools,
     coalesce(education.years_with_enrollment, 0)             as education_years_with_enrollment,
 
+    coalesce(mobility.bikeway_km, 0)                         as mobility_bikeway_km,
+    coalesce(mobility.metro_stations, 0)                     as mobility_metro_stations,
+
     weather.first_day                                        as weather_first_day,
     weather.last_day                                         as weather_last_day,
     coalesce(weather.days, 0)                                as weather_days,
+
+    -- Quantos dos seis domínios publicados têm dado para esta RA. É o número
+    -- que a interface pinta na malha: ele mede a cobertura, não a cidade.
+    (
+        coalesce(population.has_census_2022, false)::int
+        + (coalesce(security.years_with_data, 0) > 0)::int
+        + (coalesce(health.facilities_total, 0) > 0)::int
+        + (coalesce(education.schools_latest, 0) > 0)::int
+        + (coalesce(mobility.bikeway_km, 0) > 0)::int
+        + (coalesce(weather.days, 0) > 0)::int
+    )                                                        as domains_with_data,
 
     (
         coalesce(population.has_census_2022, false)
@@ -117,3 +139,4 @@ left join security_missing on security_missing.region_id = regions.region_id
 left join weather          on weather.region_id          = regions.region_id
 left join health           on health.region_id           = regions.region_id
 left join education        on education.region_id        = regions.region_id
+left join mobility         on mobility.region_id         = regions.region_id

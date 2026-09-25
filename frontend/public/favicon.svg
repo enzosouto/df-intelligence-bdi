@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="DF Intelligence">
+  <title>DF Intelligence</title>
+  <!--
+    O módulo da malha: seis células, uma por domínio publicado. Cinco cheias e
+    uma vazia — a lacuna que o projeto existe para mostrar. É a mesma peça que
+    se repete 35 vezes no topo do site, uma por Região Administrativa.
+  -->
+  <rect width="32" height="32" fill="#060010" />
+  <g fill="#FFFFFF">
+    <rect x="1.5" y="6" width="9" height="9" />
+    <rect x="11.5" y="6" width="9" height="9" />
+    <rect x="21.5" y="6" width="9" height="9" />
+    <rect x="1.5" y="17" width="9" height="9" />
+    <rect x="21.5" y="17" width="9" height="9" />
+  </g>
+  <rect x="12" y="17.5" width="8" height="8" fill="none" stroke="#FF006A" stroke-width="1.6" />
+</svg>

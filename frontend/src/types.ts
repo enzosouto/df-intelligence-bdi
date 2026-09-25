@@ -181,9 +181,13 @@ export interface Coverage {
   health_facilities: number
   education_schools: number
   education_years_with_enrollment: number
+  mobility_bikeway_km: number
+  mobility_metro_stations: number
   weather_first_day: string | null
   weather_last_day: string | null
   weather_days: number
+  /** Quantos dos seis domínios publicados têm dado para esta RA (0 a 6). */
+  domains_with_data: number
   has_all_domains: boolean
 }
 

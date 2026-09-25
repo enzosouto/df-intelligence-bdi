@@ -38,6 +38,14 @@ CENSUS_SOURCES = [
     (2022, 9923, 93),
 ]
 
+# O IBGE não publica os 35 subdistritos em todo Censo, e isso é propriedade da
+# fonte, não falha da ingestão: em 2010 só 19 RAs existiam, e em 2022 duas
+# (Arniqueira e Sol Nascente/Pôr do Sol como subdistritos próprios) não têm
+# valor divulgado. Exigir 35 fazia a verificação falhar em toda execução, o que
+# treina a gente a ignorar erro. O piso abaixo é o que uma regressão da fonte
+# violaria de verdade.
+CENSUS_EXPECTED_COVERAGE = {2010: 19, 2022: 33}
+
 DF_ESTIMATE_URL = (
     f"{SIDRA_BASE}/6579/periodos/all/variaveis/9324?localidades=N6[5300108]"
 )
@@ -134,14 +142,15 @@ def run() -> None:
                     )
                 )
 
+            expected_ras = CENSUS_EXPECTED_COVERAGE.get(year, len(subdistrict_ids))
             record_check(
                 conn,
                 run_id,
                 f"population.census_{year}_coverage",
-                passed=len(rows) == len(subdistrict_ids),
+                passed=len(rows) >= expected_ras,
                 severity="ERROR",
                 observed=f"{len(rows)} RAs com valor; sem valor: {missing}",
-                expected=f"{len(subdistrict_ids)} RAs",
+                expected=f"≥ {expected_ras} RAs (o IBGE não divulga as demais em {year})",
             )
 
             tracker["rows"] += upsert(

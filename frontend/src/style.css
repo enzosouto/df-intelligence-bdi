@@ -9,11 +9,10 @@
   }
 
   body {
-    /* Halo sutil atrás do conteúdo — dá profundidade sem virar gradiente barato. */
-    background-image:
-      radial-gradient(60rem 40rem at 20% -10%, rgba(94, 230, 197, 0.07), transparent 60%),
-      radial-gradient(48rem 36rem at 92% 0%, rgba(169, 139, 255, 0.06), transparent 62%);
-    background-attachment: fixed;
+    /* Violeta quase preto. A textura do fundo não é um gradiente estático:
+       quem desenha a grade é o <BackgroundField>, em canvas, para poder reagir
+       ao cursor sem repintar a página inteira. */
+    background-color: #060010;
   }
 
   /* Números em tabela precisam de largura fixa por dígito, senão "dançam". */
@@ -23,7 +22,8 @@
   }
 
   ::selection {
-    background: rgba(94, 230, 197, 0.25);
+    background: rgba(255, 0, 106, 0.35);
+    color: #ffffff;
   }
 
   ::-webkit-scrollbar {
@@ -31,49 +31,126 @@
     height: 10px;
   }
   ::-webkit-scrollbar-track {
-    background: #0b0d10;
+    background: #060010;
   }
   ::-webkit-scrollbar-thumb {
-    background: #232833;
-    border-radius: 999px;
-    border: 2px solid #0b0d10;
+    background: #2c1549;
+    border: 3px solid #060010;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #303747;
+    background: #ff006a;
+  }
+
+  :focus-visible {
+    outline: 2px solid #ff006a;
+    outline-offset: 2px;
+  }
+
+  /* O cursor próprio só existe onde há mouse de verdade. Em toque, o nativo
+     é o certo — e em `coarse` o componente nem monta. */
+  @media (pointer: fine) {
+    html.has-reticle,
+    html.has-reticle * {
+      cursor: none;
+    }
+    /* Exceção: campo de texto sem barra de inserção é um bug de usabilidade. */
+    html.has-reticle input,
+    html.has-reticle textarea,
+    html.has-reticle select {
+      cursor: auto;
+    }
   }
 }
 
 @layer components {
+  /* Painel, não cartão: é uma célula da grade do desenho, por isso tem régua
+     de 1px e canto vivo — nada de sombra, blur ou raio que o faça flutuar. */
   .card {
-    @apply rounded-2xl border border-line bg-surface/80 shadow-card backdrop-blur-sm;
+    @apply relative border border-line bg-surface;
   }
 
   .card-pad {
-    @apply p-5 sm:p-6;
+    @apply p-4 sm:p-6;
   }
 
+  /* O painel acende onde o cursor está. A luz é a do destaque, a mesma cor
+     do foco — quem aponta e quem tabula recebem o mesmo sinal. */
+  .card[data-lit='on']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    background: radial-gradient(
+      16rem 16rem at var(--mx, 50%) var(--my, 50%),
+      rgba(255, 0, 106, 0.14),
+      transparent 72%
+    );
+  }
+  .card[data-lit='on']:hover::after {
+    opacity: 1;
+  }
+  .card[data-lit='on'] {
+    transition: border-color 0.4s ease;
+  }
+  .card[data-lit='on']:hover {
+    border-color: rgba(255, 0, 106, 0.45);
+  }
+
+  /* Cota de desenho: a etiqueta que nomeia a medida, não a decora. */
   .label {
-    @apply text-[11px] font-medium uppercase tracking-[0.14em] text-faint;
+    @apply font-mono text-[10px] uppercase tracking-plan text-faint;
   }
 
   .metric {
-    @apply font-display text-3xl font-semibold tracking-tight tnum sm:text-4xl;
+    @apply font-display text-[2rem] font-semibold leading-none tracking-tight tnum sm:text-[2.75rem];
+    font-stretch: 112%;
   }
 
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-elevated px-2.5 py-1
-           text-[11px] font-medium text-muted;
+    @apply inline-flex items-center gap-2 border border-line bg-elevated px-2.5 py-1
+           font-mono text-[10px] uppercase tracking-[0.12em] text-muted;
+  }
+
+  /* Título de seção: a marca magenta é uma célula da malha reduzida a um
+     ponto, não um marcador decorativo. */
+  .section-title {
+    @apply flex items-baseline gap-3 font-display text-[0.85rem] font-semibold uppercase
+           tracking-[0.12em] text-ink sm:text-[0.95rem];
+    font-stretch: 112%;
+  }
+  .section-title::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: none;
+    align-self: center;
+    background: #ff006a;
   }
 
   .link-underline {
-    @apply underline decoration-line underline-offset-4 transition-colors hover:decoration-population;
+    @apply underline decoration-line underline-offset-4 transition-colors hover:decoration-accent;
   }
 
   .skeleton {
-    @apply rounded-lg bg-elevated;
-    background-image: linear-gradient(90deg, #15181e 0%, #1d222a 40%, #15181e 80%);
+    @apply bg-elevated;
+    background-image: linear-gradient(90deg, #0c0320 0%, #1e0b38 40%, #0c0320 80%);
     background-size: 500px 100%;
     @apply animate-shimmer;
+  }
+
+  /* Faixa de controles que vira carrossel no celular, em vez de quebrar em
+     quatro linhas de botões. A máscara avisa que ainda há conteúdo à direita. */
+  .rail {
+    @apply -mx-4 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0;
+    scrollbar-width: none;
+  }
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .rail > * {
+    @apply shrink-0 snap-start;
   }
 }
 

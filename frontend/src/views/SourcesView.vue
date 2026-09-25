@@ -50,7 +50,7 @@ onMounted(load)
 
 <template>
   <div class="space-y-10">
-    <header class="animate-fade-up">
+    <header>
       <h1 class="font-display text-4xl font-bold tracking-tight sm:text-5xl">
         Fontes &amp; Qualidade
       </h1>

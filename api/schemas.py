@@ -255,9 +255,13 @@ class Coverage(BaseModel):
     health_facilities: int
     education_schools: int = 0
     education_years_with_enrollment: int = 0
+    mobility_bikeway_km: float = 0
+    mobility_metro_stations: int = 0
     weather_first_day: date | None
     weather_last_day: date | None
     weather_days: int
+    # Quantos dos seis domínios publicados têm dado para esta RA (0 a 6).
+    domains_with_data: int = 0
     has_all_domains: bool
 
 

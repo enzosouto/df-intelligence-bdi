@@ -6,8 +6,10 @@
  * andamento) com traço interrompido — assim uma queda causada por dado
  * faltante não se confunde com queda real.
  */
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import { gsap } from 'gsap'
 import type { Series } from './chart'
+import { EASE, prefersReducedMotion } from '@/motion'
 
 const props = withDefaults(
   defineProps<{
@@ -126,6 +128,37 @@ const xTicks = computed(() => {
     .filter(({ index }) => index === last || (index % stride === 0 && last - index >= stride * 0.6))
 })
 
+const svg = ref<SVGSVGElement | null>(null)
+
+/**
+ * A linha é traçada da esquerda para a direita, como uma pena de plotter.
+ * O desenho leva o mesmo tempo independente do número de pontos, então séries
+ * longas e curtas terminam juntas e a página assenta de uma vez.
+ */
+watch(
+  () => props.series,
+  async () => {
+    if (prefersReducedMotion()) return
+    await nextTick()
+    const lines = svg.value?.querySelectorAll<SVGPathElement>('[data-line]')
+    if (!lines?.length) return
+    lines.forEach((line) => {
+      const length = line.getTotalLength()
+      gsap.fromTo(
+        line,
+        { strokeDasharray: length, strokeDashoffset: length },
+        {
+          strokeDashoffset: 0,
+          duration: 0.9,
+          ease: EASE,
+          clearProps: 'strokeDasharray,strokeDashoffset',
+        },
+      )
+    })
+  },
+  { immediate: true, deep: false },
+)
+
 function onMove(event: MouseEvent) {
   const rect = (event.currentTarget as SVGElement).getBoundingClientRect()
   const ratio = (event.clientX - rect.left) / rect.width
@@ -140,14 +173,15 @@ function onMove(event: MouseEvent) {
 
 <template>
   <div>
-    <div v-if="series.length > 1" class="mb-3 flex flex-wrap gap-x-5 gap-y-2">
-      <span v-for="serie in series" :key="serie.key" class="flex items-center gap-2 text-xs text-muted">
-        <span class="h-0.5 w-4 rounded-full" :style="{ background: serie.color }" />
-        {{ serie.label }}
+    <div v-if="series.length > 1" class="mb-4 flex flex-wrap gap-x-5 gap-y-2">
+      <span v-for="serie in series" :key="serie.key" class="flex items-center gap-2">
+        <span class="h-[3px] w-5" :style="{ background: serie.color }" />
+        <span class="label">{{ serie.label }}</span>
       </span>
     </div>
 
     <svg
+      ref="svg"
       :viewBox="`0 0 ${WIDTH} ${height}`"
       class="h-auto w-full overflow-visible"
       @mousemove="onMove"
@@ -168,7 +202,7 @@ function onMove(event: MouseEvent) {
           :x2="WIDTH - PAD.right"
           :y1="tick.y"
           :y2="tick.y"
-          stroke="#1A1F28"
+          stroke="#1E0B38"
           stroke-width="1"
         />
         <text
@@ -177,7 +211,7 @@ function onMove(event: MouseEvent) {
           :x="PAD.left - 10"
           :y="tick.y + 4"
           text-anchor="end"
-          class="fill-faint text-[11px] tnum"
+          class="fill-faint font-mono text-[10px] tnum"
         >
           {{ formatValue(tick.value) }}
         </text>
@@ -188,6 +222,7 @@ function onMove(event: MouseEvent) {
         <path
           v-for="(segment, index) in segmentsOf(serie)"
           :key="`seg-${serie.key}-${index}`"
+          data-line
           :d="segment"
           fill="none"
           :stroke="serie.color"
@@ -211,7 +246,7 @@ function onMove(event: MouseEvent) {
           :cy="yAt(point.y ?? 0)"
           r="4"
           :fill="serie.color"
-          stroke="#08090B"
+          stroke="#060010"
           stroke-width="2"
         />
       </g>
@@ -222,7 +257,7 @@ function onMove(event: MouseEvent) {
         :x2="xAt(hoverIndex)"
         :y1="PAD.top"
         :y2="height - PAD.bottom"
-        stroke="#39414F"
+        stroke="#FF006A"
         stroke-width="1"
         stroke-dasharray="3 3"
       />
@@ -233,7 +268,7 @@ function onMove(event: MouseEvent) {
         :x="xAt(tick.index)"
         :y="height - 8"
         text-anchor="middle"
-        class="fill-faint text-[11px]"
+        class="fill-faint font-mono text-[10px]"
       >
         {{ formatX(tick.label) }}
       </text>

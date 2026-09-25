@@ -2,16 +2,20 @@
 
 **Brasília através dos dados.**
 
+Por **Enzo Souto**, analista de dados.
+
 Plataforma de inteligência urbana sobre o Distrito Federal: uma camada analítica
 que consolida dados públicos de população, segurança, saúde, educação,
 mobilidade e clima nas 35 Regiões Administrativas — com ingestão automatizada,
 modelagem dimensional, testes de qualidade, API e interface.
 
 ```
+<!-- gerado:resumo -->
 35 Regiões Administrativas  ·  6 domínios  ·  10 fontes catalogadas
 70.035 ocorrências criminais (2014–2026)  ·  2.460 estabelecimentos de saúde
-1.594 escolas, 12 anos de Censo Escolar  ·  671,9 km de malha cicloviária
-153 testes de qualidade no dbt  ·  22 testes de integração  ·  59 unitários
+1.291 escolas em 2025, 12 anos de Censo Escolar  ·  671,9 km de ciclovia
+<!-- /gerado:resumo -->
+112 testes de qualidade no dbt  ·  22 testes de integração  ·  59 unitários
 ```
 
 ![Dashboard](docs/screenshots/dashboard.jpg)
@@ -103,7 +107,7 @@ flowchart LR
     subgraph D["dbt"]
         direction TB
         E1["37 modelos"]
-        E2["153 testes"]
+        E2["112 testes"]
     end
 
     G["FastAPI"]
@@ -161,7 +165,7 @@ incompleta, sem RA), SEMOB e DETRAN (não respondem fora do Brasil), Kaggle e ag
    `security`, `health`, `weather`. Idempotente: rodar de novo atualiza, não
    duplica.
 3. **Transforma com dbt** — `staging` → `intermediate` → `marts`.
-4. **Testa** — 105 verificações. Falha interrompe o build.
+4. **Testa** — 112 verificações de qualidade. Falha interrompe o build.
 5. **Confere** — conta as linhas de cada mart e imprime o estado de cada fonte.
 
 ### Três decisões que sustentam a confiabilidade
@@ -196,13 +200,18 @@ erDiagram
 
 | Tabela | Grão | Linhas |
 |---|---|---|
+<!-- gerado:tabela -->
 | `dim_region` | Região Administrativa | 35 |
 | `fct_population` | região × ano censitário | 52 |
 | `fct_population_df` | ano | 22 |
 | `fct_security_monthly` | região × mês × natureza | 70.035 |
 | `fct_health_facility` | estabelecimento | 2.460 |
+| `fct_education_enrollment` | escola × ano | 13.293 |
+| `fct_mobility_bikeway` | trecho cicloviário | 2.308 |
+| `fct_mobility_station` | estação de metrô | 29 |
 | `fct_weather_daily` | região × dia | 98.630 |
-| `mart_insights` | achado calculado | 10 |
+| `mart_insights` | achado calculado | 16 |
+<!-- /gerado:tabela -->
 
 Dicionário completo em [`docs/data_dictionary.md`](docs/data_dictionary.md).
 A chave de tudo é `region_id` — o código romano da RA (`RA-I` … `RA-XXXV`),
@@ -213,7 +222,7 @@ A chave de tudo é `region_id` — o código romano da RA (`RA-I` … `RA-XXXV`)
 
 ## Qualidade dos dados
 
-153 testes dbt + 59 testes unitários + 22 de integração. Documentação completa em
+112 testes dbt + 59 testes unitários + 22 de integração. Documentação completa em
 [`docs/data_quality.md`](docs/data_quality.md).
 
 **O teste mais valioso:** a soma da população das RAs tem que bater exatamente
@@ -278,7 +287,7 @@ fonte e ressalva. Exemplos gerados pelo pipeline:
 
 ## Interface
 
-Três páginas, dark mode, responsivo:
+Quatro páginas, responsivo:
 
 - **Dashboard** — KPIs, mapa das 35 RAs com seis métricas selecionáveis,
   ranking interativo, séries temporais de população, crimes, temperatura e
@@ -291,6 +300,60 @@ Três páginas, dark mode, responsivo:
 O mapa é SVG renderizado do GeoJSON servido pela API — sem biblioteca de mapas.
 Regiões sem dado para a métrica escolhida aparecem **hachuradas**, e séries com
 lacuna têm a linha **interrompida**. Em nenhum lugar ausência vira zero.
+
+### O sistema visual
+
+O assunto é uma cidade projetada, então a interface se comporta como o desenho
+de um projeto, não como um painel de BI: grade de réguas de 1px, canto vivo,
+nenhuma sombra.
+
+A paleta é um violeta quase preto de base (`#060010`), o magenta `#FF006A`
+como destaque, e tons de branco. Os painéis sobem em degraus curtos de violeta.
+O texto **não** desce em tons cada vez mais escuros: os três níveis ficam todos
+perto do branco, e a hierarquia é feita por tamanho, peso e entreletra — texto
+escuro sobre fundo escuro é ilegível, e hierarquia não vale o custo de ninguém
+conseguir ler a cota. O magenta acumula duas
+funções de propósito: é o destaque da interface — foco, navegação ativa,
+retícula, o brilho do painel sob o cursor — e é a cor da segurança, o domínio
+que mais pede atenção. Os dois registros nunca dividem o mesmo lugar: um é
+moldura, o outro é marca de dado. As seis cores de domínio ficam espalhadas
+pela roda (0°, 190°, 145°, 30°, 265°, mais o branco) para que duas séries num
+mesmo gráfico nunca se confundam. Tipografia: Archivo em largura expandida para
+os números, IBM Plex Sans no texto, IBM Plex Mono nas cotas e rótulos.
+
+**O fundo é uma prancheta viva**: uma grade desenhada em canvas, onde uma faixa
+atravessa a tela acendendo as linhas por onde passa (a passada do plotter), os
+cruzamentos acendem em volta do cursor, e alguns piscam sozinhos em magenta,
+como leitura chegando.
+
+**A malha**, no topo de toda página, é o elemento que carrega o argumento do
+projeto: 35 módulos, um por RA na ordem oficial, cada um com seis células — uma
+por domínio, preenchida quando a fonte publica e vazia quando não publica. O
+desenho que emerge é literalmente o buraco dos dados públicos do DF. O mesmo
+módulo, com uma célula vazia contornada em magenta, é o favicon.
+
+**A retícula** substitui o cursor onde existe mouse: uma cruz magenta, e só.
+Ela fica exatamente sob o ponteiro, sem atraso — trocar o cursor do sistema não
+pode custar precisão, que é justamente o que um cursor faz. O que reage é a
+própria cruz, que cresce sobre o que é clicável.
+
+**A tela de carregamento** assina o projeto e mostra o vocabulário real dele
+varrendo o
+fundo (RA-I a RA-XXXV, os anos da série da SSP-DF, CVLI, CNES, IBGE, ERA5)
+enquanto a malha é plotada célula a célula e cada endpoint aparece com o seu
+status de verdade — não há barra de progresso falsa contando sozinha até 100%.
+
+O movimento é **GSAP**, com uma regra só: a página é *plotada*, não exibida. As
+réguas crescem da margem, os painéis assentam em cascata quando encostam na
+viewport (ScrollTrigger), as linhas dos gráficos são traçadas da esquerda para
+a direita e os números correm até o valor. Trocar a métrica do mapa repinta as
+35 RAs numa onda de oeste para leste, para que dê para ver o que mudou.
+
+Com `prefers-reduced-motion`, tudo monta direto no estado final e a retícula
+nem entra no DOM — é esse caminho que as capturas de tela do README usam, o que
+torna a captura determinística e prova que o estado final é o mesmo nos dois
+modos. Em telas de toque não há retícula nem brilho de cursor; as faixas de
+controle viram carrossel horizontal em vez de quebrar em quatro linhas.
 
 ---
 
@@ -356,7 +419,7 @@ Nenhum segredo é necessário: todas as fontes são públicas.
 
 ```bash
 pytest                    # 81 testes (integração é pulada sem banco)
-cd dbt && dbt build       # 37 modelos + 153 testes de qualidade
+cd dbt && dbt build       # 37 modelos + 112 testes de qualidade
 cd frontend && npm run typecheck
 ```
 
@@ -399,7 +462,7 @@ df-intelligence/
 
 ## API
 
-20 endpoints, documentação automática em `/docs`.
+23 endpoints, documentação automática em `/docs`.
 
 ```
 GET /api/overview                        KPIs do dashboard
@@ -414,11 +477,16 @@ GET /api/security                        série mensal por RA e natureza
 GET /api/security/summary                série agregada (DF ou uma RA)
 GET /api/health                          rede instalada por RA
 GET /api/health/facilities               estabelecimentos individuais
+GET /api/education                       Censo Escolar por RA e ano
+GET /api/education/coverage              completude do arquivo de matrículas
+GET /api/mobility                        malha cicloviária e metrô por RA
+GET /api/mobility/bikeways/yearly        km por ano de construção
+GET /api/mobility/stations               estações individuais
 GET /api/weather                         série climática mensal por RA
 GET /api/weather/summary                 média do DF
 GET /api/insights                        achados calculados
 GET /api/sources                         catálogo de fontes
-GET /api/coverage                        o que existe e o que falta
+GET /api/coverage                        o que existe e o que falta, por domínio
 GET /api/pipeline                        estado da última ingestão
 ```
 

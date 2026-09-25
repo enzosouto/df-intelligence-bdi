@@ -4,6 +4,93 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Corrigido
+- **`docker compose run --rm pipeline` não executava nada.** Num checkout
+  Windows com `core.autocrlf=true`, o `scripts/run_pipeline.sh` ia para o
+  disco em CRLF e o `COPY` do Docker levava os `\r` para dentro da imagem
+  Linux, onde o bash morre em `set -euo pipefail` — e o script saía com
+  código 0, então a falha era silenciosa. O CI nunca pegou porque executa os
+  passos direto, sem container. Corrigido na raiz com `.gitattributes`
+  (`*.sh text eol=lf`), que vale para todo checkout, não só para o blob.
+- **Cobertura omitia um domínio inteiro.** `mart_data_coverage` não conhecia
+  mobilidade: uma RA sem ciclovia mapeada era contada como coberta. Passa a
+  publicar `mobility_bikeway_km`, `mobility_metro_stations` e
+  `domains_with_data` (0 a 6), que é o número que a interface pinta na malha.
+- **Duas verificações de qualidade falhavam em toda execução.**
+  `population.census_2010_coverage` e `census_2022_coverage` exigiam as 35 RAs,
+  mas em 2010 só 19 existiam e em 2022 o IBGE não divulga duas. Severidade
+  `ERROR` que nunca passa treina a equipe a ignorar erro; agora o piso é a
+  cobertura real publicada por Censo, e violá-lo continua sendo `ERROR`.
+- **As capturas de tela do README eram tiradas no meio da animação** —
+  contadores a caminho do valor, painéis ainda em opacidade zero.
+  `scripts/screenshots.py` passa a usar `reduced_motion="reduce"`, o que torna
+  a captura determinística e serve de prova de que o caminho sem movimento
+  renderiza o mesmo estado final.
+- **A página travava quando o encaminhamento de porta do Docker engasgava.** O
+  `.env` local apontava `VITE_API_BASE_URL` para `http://localhost:8000`, o que
+  amarra o navegador à porta do host e anula o proxy de `/api` que o nginx do
+  container já faz. Com um `wslrelay` órfão segurando `[::1]:8000`, toda
+  requisição ficava pendurada e a interface não saía do carregamento. Passa a
+  usar a mesma origem, como `.env.example` sempre documentou.
+- `scripts/screenshots.py` espera a tela de carregamento sair, um sinal do
+  próprio app, em vez de `networkidle` — que trava 30s inteiros quando uma
+  requisição fica pendurada, e ainda esconde a causa.
+- Números do README reconferidos contra o banco: são 112 testes de qualidade
+  no dbt (153 era o total de nós — seeds, modelos e testes somados), 23
+  endpoints, quatro páginas, e a tabela do modelo de dados ganhou as linhas de
+  educação e mobilidade que faltavam.
+
+### Alterado
+- **Sistema visual refeito.** A interface antiga era o preset de dashboard
+  escuro genérico: fundo quase preto, um accent verde-ácido, cards arredondados
+  com sombra e halos em gradiente. Nada nela sabia que o assunto é uma cidade
+  projetada. O novo sistema desenha como um projeto: grade de réguas de 1px,
+  canto vivo, nenhuma sombra; violeta quase preto (`#060010`) de fundo, magenta
+  (`#FF006A`) de destaque e tons de branco. Os três níveis de texto ficam todos
+  perto do branco e a hierarquia é feita por tamanho, peso e entreletra: texto
+  escuro sobre fundo escuro é ilegível, e hierarquia não vale o custo de
+  ninguém conseguir ler a cota. As seis cores de domínio ficam espalhadas pela
+  roda de cor para que duas séries num mesmo gráfico nunca se confundam.
+  Tipografia: Archivo expandida, IBM Plex Sans e IBM Plex Mono.
+- **Crédito do projeto** a Enzo Souto, analista de dados, na tela de
+  carregamento e no rodapé.
+- **O fundo virou uma prancheta viva** (`BackgroundField.vue`): grade em canvas
+  onde uma faixa atravessa a tela acendendo as linhas por onde passa, os
+  cruzamentos acendem em volta do cursor e alguns piscam sozinhos em magenta.
+  Canvas e não DOM porque são centenas de pontos repintados por quadro; o laço é o
+  `gsap.ticker`, o mesmo relógio das outras animações.
+- **Retícula no lugar do cursor** (`Reticle.vue`), onde existe mouse: uma cruz
+  magenta, e só. Fica exatamente sob o ponteiro, sem atraso — trocar o cursor
+  do sistema não pode custar precisão; quem reage é a própria cruz, que cresce
+  sobre o que é clicável. Os painéis acendem por dentro na posição do cursor,
+  por um listener delegado só, em variáveis CSS.
+- **Tela de carregamento** (`AppLoader.vue`): o vocabulário real do projeto
+  varre o fundo enquanto a malha é plotada célula a célula e cada endpoint
+  aparece com o seu status de verdade. Mínimo de 3s em tela — as duas
+  requisições do boot voltam em ~200ms em localhost, e um loader que pisca por
+  200ms é pior que loader nenhum.
+- **Favicon**: o módulo da malha com uma célula vazia — a lacuna virou a marca.
+  SVG mais PNGs rasterizados pelo Chromium do Playwright, sem dependência nova.
+- **Mobile**: faixas de controle viram carrossel horizontal em vez de quebrar em
+  quatro linhas, a malha acompanha a largura da tela, e nem retícula nem brilho
+  de cursor montam em telas de toque.
+- **Revelação por scroll** (ScrollTrigger): os grupos só tocam quando encostam
+  na viewport, em vez de a página inteira gastar a animação de entrada acima da
+  dobra.
+- **A malha** (`frontend/src/components/Malha.vue`): 35 módulos, um por RA, com
+  seis células cada — uma por domínio, preenchida ou vazia conforme a fonte
+  publique. Fica no topo de toda página e é, ao mesmo tempo, identidade,
+  leitura de cobertura e navegação.
+- **Movimento em GSAP** (`frontend/src/motion.ts`), com uma regra só: a página é
+  plotada, não exibida. Réguas crescem da margem, painéis assentam em cascata,
+  linhas são traçadas da esquerda para a direita, números correm até o valor, e
+  trocar a métrica do mapa repinta as 35 RAs numa onda de oeste para leste.
+  `prefers-reduced-motion` monta direto no estado final.
+- O dashboard mostra os **seis** domínios com o número que cada fonte publica
+  hoje; antes mostrava quatro, repetindo os KPIs logo acima.
+- A conferência final do `run_pipeline.sh` passa a contar também matrículas e
+  trechos cicloviários.
+
 ### Adicionado
 - **Domínio de educação** (Educacenso via SEEDF, `data.se.df.gov.br`, todas as
   redes, 2014–2025): `ingestion/education.py`, `fct_education_enrollment`,

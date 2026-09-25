@@ -109,6 +109,8 @@ QUERIES = [
     ("População do DF (anos)", "select count(*) from marts.fct_population_df"),
     ("Ocorrências criminais", "select count(*) from marts.fct_security_monthly"),
     ("Estabelecimentos de saúde", "select count(*) from marts.fct_health_facility"),
+    ("Matrículas (escola × ano)", "select count(*) from marts.fct_education_enrollment"),
+    ("Trechos cicloviários", "select count(*) from marts.fct_mobility_bikeway"),
     ("Dias de clima", "select count(*) from marts.fct_weather_daily"),
     ("Insights calculados", "select count(*) from marts.mart_insights"),
 ]

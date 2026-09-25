@@ -50,16 +50,24 @@ onMounted(load)
 
 <template>
   <div class="space-y-8">
-    <header class="animate-fade-up">
-      <h1 class="font-display text-4xl font-bold tracking-tight sm:text-5xl">Insights</h1>
-      <p class="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
+    <header>
+      <h1
+        v-reveal
+        class="font-display text-[2.5rem] font-bold uppercase leading-[0.95] tracking-tight sm:text-[3.5rem]"
+        style="font-stretch: 118%"
+      >
+        Insights
+      </h1>
+      <div v-reveal.rule class="mt-5 h-px w-full bg-line" />
+      <p v-reveal class="mt-5 max-w-2xl text-sm leading-relaxed text-muted">
         Achados calculados a partir dos dados — nenhum texto foi redigido à mão. Cada um mostra o
         período, o método de cálculo, a fonte e a limitação conhecida.
       </p>
     </header>
 
     <div
-      class="rounded-xl border border-line bg-elevated/50 px-4 py-3 text-xs leading-relaxed text-muted"
+      v-reveal
+      class="border-l-2 border-accent bg-elevated/50 px-4 py-3 text-xs leading-relaxed text-muted"
     >
       <strong class="text-ink">Sobre a leitura destes números.</strong>
       Todos descrevem o que foi <em>registrado</em>, não o que necessariamente aconteceu. Onde duas
@@ -69,12 +77,12 @@ onMounted(load)
     </div>
 
     <LoadState :loading="loading" :error="error" :empty="!loading && !error && insights.length === 0" @retry="load">
-      <div class="flex flex-wrap gap-1.5">
+      <div class="rail">
         <button
           v-for="domain in domains"
           :key="domain"
           type="button"
-          class="rounded-lg border px-3 py-1.5 text-xs transition-colors"
+          class="border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] transition-colors"
           :class="
             activeDomain === domain
               ? 'border-transparent bg-elevated text-ink'
@@ -95,7 +103,8 @@ onMounted(load)
         <article
           v-for="insight in visible"
           :key="insight.insight_id"
-          class="card card-pad animate-fade-up"
+          v-reveal
+          class="card card-pad"
         >
           <div class="flex flex-wrap items-center gap-2">
             <span

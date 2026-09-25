@@ -98,6 +98,9 @@ jobs:
     name: Ingestão + dbt + testes de integração
     runs-on: ubuntu-latest
     needs: [unit-tests, validate-sources]
+    # Necessário para o passo que commita o README e as telas de volta.
+    permissions:
+      contents: write
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_ingestion)
@@ -147,11 +150,16 @@ jobs:
         # para produção, não para a última versão do PyPI.
         run: pip install -r api/requirements.txt httpx && pytest tests/test_api_integration.py
 
-      - name: Capturar telas com dados reais
-        if: inputs.screenshots
+      # Os números e as telas do README saem do banco desta execução, e o que
+      # mudou volta commitado. Documentação escrita à mão apodrece: um README
+      # que afirma 70.035 ocorrências quando o banco tem outra coisa é
+      # exatamente o dado inventado que este projeto promete não publicar.
+      - name: Atualizar README e telas com os dados desta execução
+        if: github.event_name == 'schedule' || inputs.screenshots
         env:
           API_CORS_ORIGINS: http://localhost:5173
         run: |
+          python scripts/update_readme_stats.py
           pip install -q playwright==1.49.1 && python -m playwright install --with-deps chromium > /dev/null
           (cd frontend && npm ci --silent)
           nohup uvicorn api.main:app --port 8000 > /tmp/api.log 2>&1 &
@@ -160,7 +168,17 @@ jobs:
             curl -sf localhost:8000/api/health-check > /dev/null && curl -sf localhost:5173 > /dev/null && break
             sleep 1
           done
-          python scripts/screenshots.py --print-base64 || (tail -50 /tmp/api.log /tmp/vite.log; exit 1)
+          python scripts/screenshots.py || (tail -50 /tmp/api.log /tmp/vite.log; exit 1)
+
+      - name: Commitar o que mudou
+        if: github.event_name == 'schedule' || inputs.screenshots
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md docs/screenshots
+          git diff --staged --quiet && echo "nada mudou" && exit 0
+          git commit -m "chore: números e telas do README a partir da execução de $(date +%Y-%m-%d)"
+          git push
 
       - name: Relatório do pipeline
         if: always()

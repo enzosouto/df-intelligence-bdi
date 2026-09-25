@@ -3,7 +3,16 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '@/api'
 import { dec, fullDate, monthLabel, num, pct, short, temperature } from '@/format'
-import type { Overview, PopulationPoint, RegionFeature, RegionIndicators, SecurityPoint, WeatherPoint } from '@/types'
+import type {
+  EducationYear,
+  MobilityRegion,
+  Overview,
+  PopulationPoint,
+  RegionFeature,
+  RegionIndicators,
+  SecurityPoint,
+  WeatherPoint,
+} from '@/types'
 import KpiCard from '@/components/KpiCard.vue'
 import LineChart from '@/components/LineChart.vue'
 import type { Series } from '@/components/chart'
@@ -23,13 +32,15 @@ const indicators = ref<RegionIndicators[]>([])
 const populationDF = ref<PopulationPoint[]>([])
 const securitySeries = ref<SecurityPoint[]>([])
 const weatherSeries = ref<WeatherPoint[]>([])
+const educationYears = ref<EducationYear[]>([])
+const mobilityRegions = ref<MobilityRegion[]>([])
 
 /** Métricas que o mapa sabe pintar. Cada uma carrega sua ressalva. */
 const METRICS = [
   {
     key: 'population',
     label: 'População',
-    color: '#5EE6C5',
+    color: '#FFFFFF',
     of: (region: RegionIndicators) => region.population_2022,
     format: (value: number | null) => (value === null ? '—' : `${num(value)} hab.`),
     note: 'Censo 2022 (IBGE). Arapoanga e Água Quente não têm valor publicado — o IBGE conta a população delas dentro das RAs de origem.',
@@ -37,7 +48,7 @@ const METRICS = [
   {
     key: 'density',
     label: 'Densidade',
-    color: '#5EE6C5',
+    color: '#FFFFFF',
     of: (region: RegionIndicators) => region.density_2022_per_km2,
     format: (value: number | null) => (value === null ? '—' : `${dec(value, 1)} hab/km²`),
     note: 'A área inclui zonas rurais e de preservação dentro do limite da RA, o que reduz a densidade das regiões mais extensas.',
@@ -45,7 +56,7 @@ const METRICS = [
   {
     key: 'crime_rate',
     label: 'Crimes / 10 mil hab.',
-    color: '#FF6B81',
+    color: '#FF006A',
     of: (region: RegionIndicators) => region.crimes_per_10k,
     format: (value: number | null) => (value === null ? '—' : dec(value, 1)),
     note: 'Último ano completo publicado para cada RA, sobre a população do Censo 2022. Regiões com muito fluxo de não residentes (áreas comerciais e industriais) têm taxa inflada, porque o denominador conta só quem mora ali.',
@@ -53,7 +64,7 @@ const METRICS = [
   {
     key: 'cvli',
     label: 'CVLI / 100 mil hab.',
-    color: '#FF6B81',
+    color: '#FF006A',
     of: (region: RegionIndicators) => region.cvli_per_100k,
     format: (value: number | null) => (value === null ? '—' : dec(value, 1)),
     note: 'Crimes Violentos Letais Intencionais: homicídio, latrocínio e lesão corporal seguida de morte.',
@@ -61,7 +72,7 @@ const METRICS = [
   {
     key: 'bikeway',
     label: 'Ciclovia / 10 mil hab.',
-    color: '#FF8A4C',
+    color: '#FF9A3D',
     of: (region: RegionIndicators) => region.bikeway_km_per_10k,
     format: (value: number | null) => (value === null ? '—' : `${dec(value, 1)} km`),
     note: 'Km de ciclovia, ciclofaixa e calçada compartilhada dentro da RA (IDE-DF), por 10 mil habitantes do Censo 2022. Mede extensão instalada, não uso nem qualidade.',
@@ -69,7 +80,7 @@ const METRICS = [
   {
     key: 'health',
     label: 'Saúde / 10 mil hab.',
-    color: '#4CC2FF',
+    color: '#00D4FF',
     of: (region: RegionIndicators) => region.health_facilities_per_10k,
     format: (value: number | null) => (value === null ? '—' : dec(value, 1)),
     note: 'Estabelecimentos cadastrados no CNES. É oferta instalada, não produção de atendimentos — e a maioria dos registros são clínicas e consultórios privados.',
@@ -77,7 +88,7 @@ const METRICS = [
   {
     key: 'temperature',
     label: 'Temperatura média',
-    color: '#A98BFF',
+    color: '#A86BFF',
     of: (region: RegionIndicators) => region.temp_mean_c,
     format: (value: number | null) => temperature(value),
     note: 'Reanálise ERA5 via Open-Meteo — fonte externa, não medição do INMET. A resolução do modelo é maior que uma RA, então a variação entre regiões é pequena.',
@@ -117,7 +128,7 @@ const populationChart = computed<Series[]>(() => {
     {
       key: 'pop',
       label: 'População do DF',
-      color: '#5EE6C5',
+      color: '#FFFFFF',
       points: allYears.map((year) => ({ x: String(year), y: byYear.get(year) ?? null })),
     },
   ]
@@ -127,9 +138,9 @@ const securityChart = computed<Series[]>(() => {
   const crimes = securitySeries.value.filter((point) => point.metric_type === 'CRIME')
   const months = [...new Set(crimes.map((point) => point.reference_month_start))].sort()
   const categories = [
-    { code: 'CVLI', label: 'CVLI', color: '#FF6B81' },
-    { code: 'CCP', label: 'Crimes contra o patrimônio', color: '#F5A524' },
-    { code: 'OUTROS', label: 'Outros crimes', color: '#4CC2FF' },
+    { code: 'CVLI', label: 'CVLI', color: '#FF006A' },
+    { code: 'CCP', label: 'Crimes contra o patrimônio', color: '#FF9A3D' },
+    { code: 'OUTROS', label: 'Outros crimes', color: '#00D4FF' },
   ]
   return categories.map((category) => {
     const byMonth = new Map(
@@ -152,7 +163,7 @@ const weatherChart = computed<Series[]>(() => {
     {
       key: 'tmax',
       label: 'Máxima média',
-      color: '#F5A524',
+      color: '#FF9A3D',
       points: points.map((point) => ({
         x: point.reference_month_start,
         y: point.temp_max_avg_c,
@@ -162,7 +173,7 @@ const weatherChart = computed<Series[]>(() => {
     {
       key: 'tmin',
       label: 'Mínima média',
-      color: '#A98BFF',
+      color: '#A86BFF',
       points: points.map((point) => ({
         x: point.reference_month_start,
         y: point.temp_min_avg_c,
@@ -176,7 +187,7 @@ const rainChart = computed<Series[]>(() => [
   {
     key: 'rain',
     label: 'Precipitação mensal (média das RAs)',
-    color: '#4CC2FF',
+    color: '#00D4FF',
     points: weatherSeries.value.map((point) => ({
       x: point.reference_month_start,
       y: point.precipitation_mm,
@@ -187,31 +198,93 @@ const rainChart = computed<Series[]>(() => [
 
 const totals = computed(() => {
   const list = indicators.value
+  const schoolYears = educationYears.value.filter((year) => year.scope === 'DF')
+  const lastSchoolYear = schoolYears.reduce<EducationYear | null>(
+    (latest, year) => (latest === null || year.census_year > latest.census_year ? year : latest),
+    null,
+  )
   return {
     crimes: list.reduce((sum, region) => sum + (region.crimes_total ?? 0), 0),
     facilities: list.reduce((sum, region) => sum + region.health_facilities, 0),
     withCrimeData: list.filter((region) => region.security_reference_year !== null).length,
+    schools: lastSchoolYear?.schools_total ?? null,
+    schoolsYear: lastSchoolYear?.census_year ?? null,
+    bikewayKm: mobilityRegions.value.reduce((sum, region) => sum + region.bikeway_km, 0),
+    metroStations: mobilityRegions.value.reduce((sum, region) => sum + region.metro_stations, 0),
   }
 })
+
+/** Um número por domínio, com a ressalva do que ele mede — e do que não mede. */
+const domainSummary = computed(() => [
+  {
+    key: 'population',
+    label: 'População',
+    color: '#FFFFFF',
+    value: num(overview.value?.population_df_latest),
+    note: `Habitantes no DF em ${overview.value?.population_df_latest_year ?? '—'}. Por RA, só o Censo mede.`,
+  },
+  {
+    key: 'security',
+    label: 'Segurança',
+    color: '#FF006A',
+    value: short(totals.value.crimes),
+    note: `Crimes registrados no último ano completo de cada uma das ${totals.value.withCrimeData} RAs com publicação.`,
+  },
+  {
+    key: 'health',
+    label: 'Saúde',
+    color: '#00D4FF',
+    value: num(totals.value.facilities),
+    note: 'Estabelecimentos do CNES localizados em uma RA. Infraestrutura instalada, não atendimentos.',
+  },
+  {
+    key: 'education',
+    label: 'Educação',
+    color: '#7CFFB2',
+    value: num(totals.value.schools),
+    note: `Escolas no Censo Escolar de ${totals.value.schoolsYear ?? '—'} (SEEDF). Matrícula é contada onde a escola fica, não onde o aluno mora.`,
+  },
+  {
+    key: 'mobility',
+    label: 'Mobilidade',
+    color: '#FF9A3D',
+    value: `${dec(totals.value.bikewayKm, 1)} km`,
+    note: `Malha cicloviária mapeada pelo IDE-DF, mais ${totals.value.metroStations} estações de metrô em operação. Mede extensão, não uso.`,
+  },
+  {
+    key: 'weather',
+    label: 'Clima',
+    color: '#A86BFF',
+    value: weatherSeries.value.length
+      ? temperature(weatherSeries.value[weatherSeries.value.length - 1].temp_mean_c)
+      : '—',
+    note: 'Temperatura média do último mês observado. Reanálise ERA5/Open-Meteo, não medição do INMET.',
+  },
+])
 
 async function load() {
   loading.value = true
   error.value = null
   try {
-    const [overviewData, geo, indicatorList, populationSeries, security, weather] = await Promise.all([
-      api.overview(),
-      api.regionsGeoJSON(),
-      api.indicators(),
-      api.population({ scope: 'df' }),
-      api.securitySummary({ year_from: 2018 }),
-      api.weatherSummary({ year_from: 2022 }),
-    ])
+    const [overviewData, geo, indicatorList, populationSeries, security, weather, education, mobility] =
+      await Promise.all([
+        api.overview(),
+        api.regionsGeoJSON(),
+        api.indicators(),
+        api.population({ scope: 'df' }),
+        api.securitySummary({ year_from: 2018 }),
+        api.weatherSummary({ year_from: 2022 }),
+        api.education(),
+        api.mobility(),
+      ])
     overview.value = overviewData
     features.value = geo.features
     indicators.value = indicatorList
     populationDF.value = populationSeries
     securitySeries.value = security
     weatherSeries.value = weather
+    educationYears.value = education
+    mobilityRegions.value = mobility
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -225,37 +298,49 @@ onMounted(load)
 <template>
   <div class="space-y-10">
     <!-- Cabeçalho -->
-    <section class="animate-fade-up">
-      <h1 class="font-display text-4xl font-bold tracking-tight sm:text-5xl">
-        Brasília através dos dados.
+    <section>
+      <p v-reveal class="label">
+        35 Regiões Administrativas · 6 domínios · 10 fontes oficiais
+      </p>
+      <h1
+        v-reveal
+        class="mt-4 font-display text-[2.75rem] font-bold uppercase leading-[0.92] tracking-tight
+               sm:text-[4.5rem]"
+        style="font-stretch: 118%"
+      >
+        Brasília<br />
+        <span class="text-accent">através dos dados</span>
       </h1>
-      <p class="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-        Dados públicos de população, segurança, saúde, educação, mobilidade e clima consolidados
-        por Região Administrativa — com a cobertura real de cada fonte à mostra, não escondida.
+      <div v-reveal.rule class="mt-6 h-px w-full bg-line" />
+      <p v-reveal class="mt-5 max-w-2xl text-sm leading-relaxed text-muted">
+        Dados públicos de população, segurança, saúde, educação, mobilidade e clima, consolidados
+        por Região Administrativa. Onde a fonte não publica, a interface mostra um traço — nunca
+        um zero.
       </p>
     </section>
 
     <LoadState :loading="loading" :error="error" @retry="load">
       <!-- KPIs -->
-      <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section class="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="População do DF"
-          :value="short(overview?.population_df_latest)"
+          :count="overview?.population_df_latest ?? null"
+          :format="num"
           :hint="
             overview
-              ? `${overview.population_df_is_projection ? 'Projeção' : 'Censo'} IBGE ${overview.population_df_latest_year} · ${num(overview.population_df_latest)} habitantes`
+              ? `Habitantes. ${overview.population_df_is_projection ? 'Projeção' : 'Censo'} do IBGE para ${overview.population_df_latest_year}`
               : ''
           "
-          accent="#5EE6C5"
+          accent="#FFFFFF"
         />
         <KpiCard
           label="Regiões Administrativas"
-          :value="String(overview?.regions_total ?? '—')"
-          :hint="`${overview?.regions_with_all_domains ?? 0} com dados nos quatro domínios`"
+          :count="overview?.regions_total ?? null"
+          :hint="`${overview?.regions_with_all_domains ?? 0} com dado publicado nos quatro domínios de série longa`"
         />
         <KpiCard
           label="Indicadores monitorados"
-          :value="String(overview?.indicators_monitored ?? '—')"
+          :count="overview?.indicators_monitored ?? null"
           :hint="`${overview?.sources_total ?? 0} fontes catalogadas · ${overview?.government_sources_total ?? 0} do GDF`"
         />
         <KpiCard
@@ -274,21 +359,20 @@ onMounted(load)
         <div class="card card-pad">
           <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 class="font-display text-lg font-semibold">Mapa do Distrito Federal</h2>
-              <p class="mt-1 text-xs text-faint">
-                35 Regiões Administrativas · clique para abrir o detalhe
-              </p>
+              <h2 class="section-title">Mapa do Distrito Federal</h2>
+              <p class="label mt-2">35 Regiões Administrativas · clique para abrir o detalhe</p>
             </div>
-            <div class="flex flex-wrap gap-1.5">
+            <div class="rail">
               <button
                 v-for="item in METRICS"
                 :key="item.key"
                 type="button"
-                class="rounded-lg border px-2.5 py-1.5 text-[11px] transition-colors"
+                class="border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em]
+                       transition-colors"
                 :class="
                   metricKey === item.key
-                    ? 'border-transparent text-base'
-                    : 'border-line text-muted hover:border-line hover:text-ink'
+                    ? 'border-transparent text-night'
+                    : 'border-line text-faint hover:text-ink'
                 "
                 :style="metricKey === item.key ? { background: item.color } : undefined"
                 @click="metricKey = item.key"
@@ -313,8 +397,8 @@ onMounted(load)
         </div>
 
         <div class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">Ranking · {{ metric.label }}</h2>
-          <p class="mb-4 mt-1 text-xs text-faint">Maiores valores entre as 35 RAs</p>
+          <h2 class="section-title">Ranking · {{ metric.label }}</h2>
+          <p class="label mb-4 mt-2">Maiores valores entre as 35 RAs</p>
           <RankBars
             :items="ranking"
             :color="metric.color"
@@ -326,46 +410,34 @@ onMounted(load)
         </div>
       </section>
 
-      <!-- Cards de domínio -->
-      <section class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="card card-pad">
-          <p class="label" style="color: #5ee6c5">População</p>
-          <p class="metric mt-2">{{ short(overview?.population_df_latest) }}</p>
-          <p class="mt-2 text-xs text-faint">
-            Habitantes no DF ({{ overview?.population_df_latest_year }}). Por RA, só o Censo mede.
-          </p>
-        </div>
-        <div class="card card-pad">
-          <p class="label" style="color: #ff6b81">Segurança</p>
-          <p class="metric mt-2">{{ short(totals.crimes) }}</p>
-          <p class="mt-2 text-xs text-faint">
-            Crimes registrados no último ano completo de cada uma das
-            {{ totals.withCrimeData }} RAs com publicação.
-          </p>
-        </div>
-        <div class="card card-pad">
-          <p class="label" style="color: #4cc2ff">Saúde</p>
-          <p class="metric mt-2">{{ num(totals.facilities) }}</p>
-          <p class="mt-2 text-xs text-faint">
-            Estabelecimentos do CNES localizados em uma RA. Infraestrutura, não atendimentos.
-          </p>
-        </div>
-        <div class="card card-pad">
-          <p class="label" style="color: #a98bff">Clima</p>
-          <p class="metric mt-2">
-            {{ weatherSeries.length ? temperature(weatherSeries[weatherSeries.length - 1].temp_mean_c) : '—' }}
-          </p>
-          <p class="mt-2 text-xs text-faint">
-            Temperatura média do último mês observado (ERA5/Open-Meteo).
-          </p>
+      <!-- Os seis domínios, cada um com o número que a fonte publica hoje -->
+      <section class="mt-12">
+        <h2 v-reveal class="section-title">Seis domínios</h2>
+        <div v-reveal.rule class="mt-4 h-px w-full bg-line" />
+        <div class="mt-px grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
+          <div
+            v-for="domain in domainSummary"
+            :key="domain.key"
+            v-reveal
+            class="card-pad relative bg-surface"
+          >
+            <span
+              class="absolute left-0 top-0 h-full w-[3px]"
+              :style="{ background: domain.color }"
+              aria-hidden="true"
+            />
+            <p class="label" :style="{ color: domain.color }">{{ domain.label }}</p>
+            <p class="metric mt-3">{{ domain.value }}</p>
+            <p class="mt-3 font-mono text-[11px] leading-relaxed text-faint">{{ domain.note }}</p>
+          </div>
         </div>
       </section>
 
       <!-- Séries temporais -->
       <section class="mt-10 grid gap-6 lg:grid-cols-2">
         <div class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">Evolução da população do DF</h2>
-          <p class="mb-5 mt-1 text-xs text-faint">
+          <h2 class="section-title">Evolução da população do DF</h2>
+          <p class="label mb-5 mt-2">
             Série do IBGE, {{ populationDF[0]?.reference_year }}–{{
               populationDF[populationDF.length - 1]?.reference_year
             }}
@@ -393,8 +465,8 @@ onMounted(load)
         </div>
 
         <div class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">Crimes registrados por mês</h2>
-          <p class="mb-5 mt-1 text-xs text-faint">
+          <h2 class="section-title">Crimes registrados por mês</h2>
+          <p class="label mb-5 mt-2">
             Soma das RAs que publicaram cada mês · SSP-DF, a partir de 2018
           </p>
           <LineChart
@@ -410,8 +482,8 @@ onMounted(load)
         </div>
 
         <div class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">Temperatura média mensal</h2>
-          <p class="mb-5 mt-1 text-xs text-faint">Média das 35 RAs · ERA5/Open-Meteo</p>
+          <h2 class="section-title">Temperatura média mensal</h2>
+          <p class="label mb-5 mt-2">Média das 35 RAs · ERA5/Open-Meteo</p>
           <LineChart
             :series="weatherChart"
             :format-value="(value) => `${dec(value, 0)}°`"
@@ -422,8 +494,8 @@ onMounted(load)
         </div>
 
         <div class="card card-pad">
-          <h2 class="font-display text-lg font-semibold">Precipitação mensal</h2>
-          <p class="mb-5 mt-1 text-xs text-faint">
+          <h2 class="section-title">Precipitação mensal</h2>
+          <p class="label mb-5 mt-2">
             A seca de maio a setembro é a marca climática do Planalto Central
           </p>
           <LineChart

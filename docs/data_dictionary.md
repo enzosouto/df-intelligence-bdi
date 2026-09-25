@@ -252,8 +252,11 @@ Grão: `region_id`. Existe para que lacuna apareça como lacuna.
 | `security_missing_years` | int[] — anos sem publicação para essa RA. |
 | `security_months_with_data` | Meses distintos com dado. |
 | `health_facilities` | Estabelecimentos atribuídos. |
+| `education_schools`, `education_years_with_enrollment` | Escolas no último Censo Escolar e anos com arquivo de matrículas completo. |
+| `mobility_bikeway_km`, `mobility_metro_stations` | Malha cicloviária e estações de metrô na RA. |
 | `weather_first_day`, `weather_last_day`, `weather_days` | Cobertura climática. |
-| `has_all_domains` | Tem dado nos quatro domínios originais (população, segurança, saúde, clima). |
+| `domains_with_data` | 0 a 6 — quantos domínios publicados têm dado para essa RA. É o número que a malha da interface pinta. |
+| `has_all_domains` | Tem dado nos quatro domínios de série longa (população, segurança, saúde, clima). |
 
 ---
 

@@ -14,7 +14,7 @@ construção do pipeline.
 |---|---|---|
 | Antes da ingestão | `python -m ingestion.validate_sources` | Fonte fora do ar ou com contrato alterado |
 | Durante a ingestão | `meta.data_quality_check` | Registra achado; `ERROR` derruba o pipeline no CI |
-| Após a transformação | `dbt build` (153 testes) | Teste falho interrompe o build |
+| Após a transformação | `dbt build` (112 testes) | Teste falho interrompe o build |
 | Sobre o código | `pytest` (59 unitários + 22 de integração) | Regressão em regra de parsing ou de atribuição |
 
 ---
@@ -335,7 +335,7 @@ construção".
 
 ## 3. Testes do dbt
 
-153 testes no total. Os que carregam mais informação:
+112 testes no total. Os que carregam mais informação:
 
 ### 3.1 Reconciliação com o total oficial do IBGE
 

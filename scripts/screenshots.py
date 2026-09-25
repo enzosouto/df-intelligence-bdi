@@ -40,13 +40,30 @@ def main() -> None:
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        page = browser.new_page(viewport={"width": 1440, "height": 900}, color_scheme="dark")
+        # `reduced_motion` não é preferência estética aqui: é o que torna a
+        # captura determinística. Com animação ligada, a tela era fotografada no
+        # meio da cascata de entrada — contadores a caminho do valor e painéis
+        # ainda em opacidade zero. Pedindo movimento reduzido, a página monta
+        # direto no estado final, e de quebra a captura vira prova de que esse
+        # caminho renderiza tudo que o caminho animado renderiza.
+        page = browser.new_page(
+            viewport={"width": 1440, "height": 900},
+            color_scheme="dark",
+            reduced_motion="reduce",
+        )
         errors: list[str] = []
         page.on("console", lambda msg: errors.append(msg.text) if msg.type == "error" else None)
         page.on("pageerror", lambda exc: errors.append(str(exc)))
 
         for name, path in PAGES.items():
-            page.goto(BASE_URL + path, wait_until="networkidle")
+            page.goto(BASE_URL + path, wait_until="load")
+            # Dois sinais do próprio app, em vez de um palpite sobre a rede:
+            # a tela de carregamento saiu, e nenhum esqueleto restou (é o que
+            # o `LoadState` desenha enquanto a página busca os seus dados).
+            # `networkidle` cobriria os dois, mas trava por 30s inteiros quando
+            # uma requisição fica pendurada, e ainda esconde a causa.
+            page.wait_for_selector("[data-loader-core]", state="detached", timeout=30_000)
+            page.wait_for_function("!document.querySelector('.skeleton')", timeout=30_000)
             # Gráficos e mapa terminam de desenhar depois das requisições.
             page.wait_for_timeout(1500)
             target = OUT_DIR / f"{name}.jpg"

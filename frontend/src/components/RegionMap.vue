@@ -11,9 +11,11 @@
  * Regiões sem valor para o indicador escolhido ficam hachuradas, nunca
  * pintadas como se fossem zero.
  */
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import { gsap } from 'gsap'
 import type { RegionFeature } from '@/types'
 import { EMPTY } from '@/format'
+import { EASE, prefersReducedMotion } from '@/motion'
 
 const props = withDefaults(
   defineProps<{
@@ -24,7 +26,7 @@ const props = withDefaults(
     selectedId?: string | null
     metricLabel?: string
   }>(),
-  { color: '#5EE6C5', selectedId: null, metricLabel: '' },
+  { color: '#FFFFFF', selectedId: null, metricLabel: '' },
 )
 
 const emit = defineEmits<{ select: [regionId: string]; hover: [regionId: string | null] }>()
@@ -93,12 +95,17 @@ const shapes = computed(() =>
   props.features.map((feature) => {
     const value = props.metricOf(feature)
     const intensity = scaleByRank.value(value)
+    const firstRing = ringsOf(feature)[0] ?? []
+    const centroidLon =
+      firstRing.reduce((sum, [lon]) => sum + lon, 0) / Math.max(firstRing.length, 1)
     return {
       id: feature.properties.region_id,
       name: feature.properties.region_name,
       value,
-      // Piso de 0,08 para que a região mais baixa ainda se leia como área.
-      fillOpacity: value === null ? 0 : 0.08 + intensity * 0.82,
+      // Só para ordenar a cascata de oeste para leste na troca de métrica.
+      cx: projection.value(centroidLon, 0)[0],
+      // Piso de 0,14: abaixo disso a RA de menor valor some no fundo carvão.
+      fillOpacity: value === null ? 0 : 0.14 + intensity * 0.76,
       path: ringsOf(feature)
         .map(
           (ring) =>
@@ -115,6 +122,40 @@ const shapes = computed(() =>
 )
 
 const hoveredShape = computed(() => shapes.value.find((shape) => shape.id === hovered.value) ?? null)
+
+const svg = ref<SVGSVGElement | null>(null)
+
+/**
+ * Trocar de métrica repinta o mapa numa onda de oeste para leste, na ordem em
+ * que as RAs aparecem no eixo. Um corte seco faria 35 polígonos mudarem de cor
+ * ao mesmo tempo e ninguém veria o que mudou; a onda obriga o olho a percorrer
+ * a cidade inteira antes de parar no valor.
+ */
+watch(
+  shapes,
+  async () => {
+    if (prefersReducedMotion()) return
+    await nextTick()
+    const paths = svg.value?.querySelectorAll<SVGPathElement>('[data-region]')
+    if (!paths?.length) return
+    const ordered = [...paths].sort(
+      (a, b) => Number(a.dataset.cx ?? 0) - Number(b.dataset.cx ?? 0),
+    )
+    gsap.fromTo(
+      ordered,
+      { fillOpacity: 0 },
+      {
+        fillOpacity: (_index: number, target: SVGPathElement) =>
+          Number(target.getAttribute('fill-opacity') ?? 1),
+        duration: 0.45,
+        ease: EASE,
+        stagger: 0.012,
+        clearProps: 'fillOpacity',
+      },
+    )
+  },
+  { immediate: true },
+)
 
 function onEnter(id: string) {
   hovered.value = id
@@ -135,6 +176,7 @@ function onMove(event: MouseEvent) {
 <template>
   <div class="relative" @mousemove="onMove" @mouseleave="onLeave">
     <svg
+      ref="svg"
       :viewBox="`0 0 ${WIDTH} ${HEIGHT}`"
       class="h-auto w-full"
       role="img"
@@ -148,8 +190,8 @@ function onMove(event: MouseEvent) {
           patternTransform="rotate(45)"
           patternUnits="userSpaceOnUse"
         >
-          <rect width="6" height="6" fill="#0F1115" />
-          <line x1="0" y1="0" x2="0" y2="6" stroke="#2A3140" stroke-width="2" />
+          <rect width="6" height="6" fill="#0C0320" />
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#FF006A" stroke-width="2" />
         </pattern>
       </defs>
 
@@ -157,14 +199,16 @@ function onMove(event: MouseEvent) {
         <path
           v-for="shape in shapes"
           :key="shape.id"
+          data-region
+          :data-cx="shape.cx"
           :d="shape.path"
           :fill="shape.value === null ? 'url(#no-data)' : color"
           :fill-opacity="shape.value === null ? 1 : shape.fillOpacity"
           :stroke="
-            selectedId === shape.id ? '#ECEFF4' : hovered === shape.id ? color : '#080A0C'
+            selectedId === shape.id ? '#F7F2FF' : hovered === shape.id ? color : '#2C1549'
           "
           :stroke-width="selectedId === shape.id ? 2.4 : hovered === shape.id ? 2 : 1"
-          class="cursor-pointer transition-[stroke,stroke-width,fill-opacity] duration-200 focus:outline-none"
+          class="cursor-pointer transition-[stroke,stroke-width] duration-200 focus:outline-none"
           tabindex="0"
           role="button"
           :aria-label="`${shape.name}: ${formatValue(shape.value)}`"
@@ -187,36 +231,37 @@ function onMove(event: MouseEvent) {
       <div
         v-if="hoveredShape"
         class="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-[calc(100%+14px)]
-               whitespace-nowrap rounded-xl border border-line bg-elevated/95 px-3 py-2
-               shadow-card backdrop-blur"
+               whitespace-nowrap border border-line bg-elevated px-3 py-2"
         :style="{ left: `${pointer.x}px`, top: `${pointer.y}px` }"
       >
-        <p class="font-display text-sm font-semibold text-ink">{{ hoveredShape.name }}</p>
-        <p class="tnum text-xs text-muted">
+        <p class="font-mono text-[10px] uppercase tracking-[0.12em] text-ink">
+          {{ hoveredShape.name }}
+        </p>
+        <p class="mt-0.5 font-display text-sm font-semibold tnum" style="font-stretch: 112%">
           <span v-if="hoveredShape.value === null" class="text-warn">Sem dado publicado</span>
-          <span v-else>{{ formatValue(hoveredShape.value) }}</span>
+          <span v-else class="text-ink">{{ formatValue(hoveredShape.value) }}</span>
         </p>
       </div>
     </Transition>
 
-    <div class="mt-4 flex flex-wrap items-center gap-4 text-[11px] text-faint">
+    <div class="mt-5 flex flex-wrap items-center gap-6">
       <div class="flex items-center gap-2">
-        <span class="uppercase tracking-[0.14em]">menor</span>
-        <div class="flex overflow-hidden rounded-full border border-line">
+        <span class="label">menor</span>
+        <div class="flex gap-px">
           <span
             v-for="step in 6"
             :key="step"
             class="h-2.5 w-7"
-            :style="{ background: color, opacity: 0.08 + ((step - 1) / 5) * 0.82 }"
+            :style="{ background: color, opacity: 0.14 + ((step - 1) / 5) * 0.76 }"
           />
         </div>
-        <span class="uppercase tracking-[0.14em]">maior</span>
+        <span class="label">maior</span>
       </div>
       <div class="flex items-center gap-2">
-        <svg width="14" height="14" class="rounded-[3px]">
-          <rect width="14" height="14" fill="url(#no-data)" />
+        <svg width="12" height="12" aria-hidden="true">
+          <rect width="12" height="12" fill="url(#no-data)" />
         </svg>
-        <span>sem dado publicado ({{ EMPTY }})</span>
+        <span class="label">sem dado publicado ({{ EMPTY }})</span>
       </div>
     </div>
   </div>

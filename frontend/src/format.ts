@@ -69,13 +69,13 @@ export function dateTime(iso: string | null | undefined): string {
 }
 
 export const DOMAIN_COLORS: Record<string, string> = {
-  population: '#5EE6C5',
-  security: '#FF6B81',
-  health: '#4CC2FF',
-  education: '#C3E86B',
-  mobility: '#FF8A4C',
-  weather: '#A98BFF',
-  quality: '#F5A524',
+  population: '#FFFFFF',
+  security: '#FF006A',
+  health: '#00D4FF',
+  education: '#7CFFB2',
+  mobility: '#FF9A3D',
+  weather: '#A86BFF',
+  quality: '#FFC93D',
 }
 
 export const DOMAIN_LABELS: Record<string, string> = {

@@ -74,7 +74,7 @@ da ausência a publicar um número errado.
 ```bash
 pytest                                  # tudo (integração é pulada sem banco)
 pytest tests/test_security_parser.py    # só o parser da SSP
-cd dbt && dbt build                     # modelos + 153 testes de qualidade
+cd dbt && dbt build                     # modelos + 112 testes de qualidade
 cd frontend && npm run typecheck
 ```
 

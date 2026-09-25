@@ -1,0 +1,6 @@
+# Scripts e arquivos lidos dentro dos containers (Linux) precisam de LF.
+# Sem isto, um clone no Windows com core.autocrlf=true converte para CRLF e o
+# bash do container falha na primeira linha: "set: pipefail: invalid option name".
+* text=auto eol=lf
+*.jpg binary
+*.png binary

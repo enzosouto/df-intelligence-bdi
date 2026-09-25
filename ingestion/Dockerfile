@@ -20,7 +20,11 @@ COPY dbt/       /app/dbt/
 COPY db/        /app/db/
 COPY scripts/   /app/scripts/
 
-RUN chmod +x /app/scripts/*.sh && mkdir -p /app/data/raw
+# Clone no Windows pode trazer CRLF, que quebra o bash. Normaliza aqui também,
+# para não depender de como o repositório foi clonado.
+RUN sed -i 's/\r$//' /app/scripts/*.sh \
+    && chmod +x /app/scripts/*.sh \
+    && mkdir -p /app/data/raw
 
 ENV DBT_PROFILES_DIR=/app/dbt
 

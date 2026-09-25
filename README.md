@@ -209,7 +209,7 @@ erDiagram
 | `fct_education_enrollment` | escola × ano | 13.293 |
 | `fct_mobility_bikeway` | trecho cicloviário | 2.308 |
 | `fct_mobility_station` | estação de metrô | 29 |
-| `fct_weather_daily` | região × dia | 98.630 |
+| `fct_weather_daily` | região × dia | 111.440 |
 | `mart_insights` | achado calculado | 16 |
 <!-- /gerado:tabela -->
 

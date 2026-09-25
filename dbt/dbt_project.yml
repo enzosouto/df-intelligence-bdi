@@ -12,6 +12,13 @@ macro-paths: ["macros"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
+# Schema da API liberado para a role de leitura antes de os modelos rodarem
+# (ver macros/grant_api_reader.sql).
+on-run-start:
+  - "{{ grant_api_reader_schema() }}"
+on-run-end:
+  - "{{ grant_api_reader_all() }}"
+
 models:
   df_intelligence:
     staging:
@@ -24,6 +31,8 @@ models:
       +schema: marts
       # Tabelas: a API lê daqui e precisa de leitura rápida e previsível.
       +materialized: table
+      # Leitura para a role da API em produção (no-op sem a role).
+      +post-hook: "{{ grant_api_reader() }}"
 
 seeds:
   df_intelligence:

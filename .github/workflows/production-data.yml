@@ -1,0 +1,91 @@
+name: production-data
+
+# Atualiza o banco de PRODUÇÃO (Neon) — o que o site no ar mostra.
+#
+# Por que aqui e não no Render: os portais do GDF recusam ou estouram conexões
+# vindas de fora do Brasil de forma irregular, e os runners do GitHub já
+# provaram que alcançam todas as fontes (é onde o CI roda a ingestão real).
+# E o Actions é o único lugar que tem a senha de ESCRITA do banco; a API no
+# Render só tem a de leitura.
+#
+# Ritmo:
+#   todo dia 06:00 (Brasília) → clima + dbt (Open-Meteo publica por dia)
+#   segundas                  → todas as fontes (SSP-DF, CNES etc. publicam por mês)
+# Atualizar mais vezes do que a fonte publica não traz dado novo.
+#
+# Segredo necessário (Settings → Secrets and variables → Actions):
+#   PRODUCTION_DATABASE_URL  conexão da role DONA do banco no Neon
+# Sem ele, o workflow não faz nada.
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC = 06:00 em Brasília
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Carga completa (todas as fontes). Desmarcado: só clima + dbt."
+        type: boolean
+        default: true
+
+# Nunca duas cargas ao mesmo tempo no mesmo banco.
+concurrency:
+  group: production-data
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: Atualizar banco de produção
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+    steps:
+      - name: Conferir segredo
+        id: secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::notice::PRODUCTION_DATABASE_URL não configurado — nada a fazer. Veja docs/deploy.md."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secret.outputs.ok == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.secret.outputs.ok == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Dependências
+        if: steps.secret.outputs.ok == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Schemas e tabelas (idempotente)
+        if: steps.secret.outputs.ok == 'true'
+        run: python scripts/init_db.py
+
+      - name: Carga
+        if: steps.secret.outputs.ok == 'true'
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FULL="${{ inputs.full }}"
+          elif [ "$(date -u +%u)" = "1" ]; then
+            FULL=true
+          else
+            FULL=false
+          fi
+          # Banco ainda sem marts (primeira vez): carga completa sempre.
+          EMPTY=$(python -c "import os,psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']).cursor(); c.execute(\"select to_regclass('marts.dim_region') is null\"); print(c.fetchone()[0])")
+          if [ "$FULL" = "true" ] || [ "$EMPTY" = "True" ]; then
+            echo "Carga completa"
+            bash scripts/run_pipeline.sh
+          else
+            echo "Carga diária: clima + dbt"
+            bash scripts/run_pipeline.sh --only weather --skip-validation
+          fi

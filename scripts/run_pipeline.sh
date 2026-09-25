@@ -7,6 +7,7 @@
 #   ./scripts/run_pipeline.sh                  # tudo
 #   ./scripts/run_pipeline.sh --skip-ingestion # só dbt (itera em modelagem)
 #   ./scripts/run_pipeline.sh --only security  # uma fonte
+#   ./scripts/run_pipeline.sh --skip-validation # não checa as fontes antes
 #
 set -euo pipefail
 
@@ -33,7 +34,7 @@ fi
 eval "$(
   "${PYTHON}" - <<'PY'
 import os
-from urllib.parse import urlparse, unquote
+from urllib.parse import parse_qs, urlparse, unquote
 
 url = urlparse(os.environ["DATABASE_URL"])
 parts = {
@@ -42,6 +43,7 @@ parts = {
     "DBT_POSTGRES_USER": unquote(url.username or "df"),
     "DBT_POSTGRES_PASSWORD": unquote(url.password or ""),
     "DBT_POSTGRES_DB": (url.path or "/df_intelligence").lstrip("/"),
+    "DBT_POSTGRES_SSLMODE": parse_qs(url.query).get("sslmode", ["prefer"])[0],
 }
 for key, value in parts.items():
     print(f"export {key}='{value}'")
@@ -55,11 +57,13 @@ export DBT_PROFILES_DIR="${REPO_ROOT}/dbt"
 dbt() { "${PYTHON}" -m dbt.cli.main "$@"; }
 
 SKIP_INGESTION=0
+SKIP_VALIDATION=0
 ONLY_MODULES=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-ingestion) SKIP_INGESTION=1; shift ;;
     --only)           ONLY_MODULES+=("$2"); shift 2 ;;
+    --skip-validation) SKIP_VALIDATION=1; shift ;;
     *) echo "argumento desconhecido: $1" >&2; exit 2 ;;
   esac
 done
@@ -70,8 +74,10 @@ if [[ "${SKIP_INGESTION}" -eq 0 ]]; then
   # --- 1. As fontes ainda existem? ------------------------------------------
   # Só antes de ingerir: remodelar o que já está no banco não depende de rede,
   # e um portal do GDF fora do ar não pode travar o `dbt build`.
-  step "Validando fontes"
-  "${PYTHON}" -m ingestion.validate_sources
+  if [[ "${SKIP_VALIDATION}" -eq 0 ]]; then
+    step "Validando fontes"
+    "${PYTHON}" -m ingestion.validate_sources
+  fi
 
   # --- 2. Ingestão ----------------------------------------------------------
   step "Ingestão (fontes → schema raw)"

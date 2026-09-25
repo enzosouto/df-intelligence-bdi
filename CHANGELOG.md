@@ -4,6 +4,22 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Não lançado]
 
+### Adicionado
+- **Atualização automática.** Serviço `updater` no Docker Compose
+  (`scripts/scheduler.py`): clima + dbt todo dia às 06:00 de Brasília, todas
+  as fontes às segundas; banco vazio dispara a carga completa na hora.
+- **Deploy** (`docs/deploy.md`): Neon (banco), Render (API, `render.yaml`),
+  Vercel (site, `frontend/vercel.json`) e `production-data.yml` no GitHub
+  Actions gravando no banco de produção no mesmo ritmo.
+- Role `api_reader` só de leitura para a API; os GRANTs são refeitos pelo dbt
+  a cada tabela recriada (`macros/grant_api_reader.sql`).
+- `scripts/init_db.py` aplica `db/init/*.sql` em banco sem o gancho do Docker.
+- `run_pipeline.sh --skip-validation`; `sslmode` da URL repassado ao dbt.
+
+### Corrigido
+- API: conexão do pool derrubada pelo banco (Neon suspende o computador
+  ocioso) virava erro 500; agora é trocada por uma nova antes do uso.
+
 ### Removido
 - Brilho magenta que acompanhava o cursor dentro dos painéis. No hover, o
   painel só ganha a borda do destaque.
